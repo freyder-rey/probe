@@ -1,32 +1,14 @@
+mod handlers;
+
 use axum::{
-    extract::Path,
-    http::{header, StatusCode},
+    http::header,
     response::{Html, IntoResponse, Response},
     routing::{get, post},
-    Json, Router,
+    Router,
 };
+use probe_core::Engine;
 
-use probe_core::{
-    engine::Engine,
-    model::Collection,
-    storage::Storage,
-};
-
-#[derive(serde::Deserialize)]
-struct ExecuteBody {
-    request: probe_core::model::Request,
-}
-
-#[derive(serde::Serialize)]
-struct ExecuteResponse {
-    response: probe_core::model::Response,
-}
-
-#[derive(serde::Serialize)]
-struct CollectionSummary {
-    name: String,
-    size: u64,
-}
+use handlers::{delete_collection, execute, list_collections, load_collection, save_collection};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -37,7 +19,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/app.js", get(app_js))
         .route(
             "/api/execute",
-            post(move |body: Json<ExecuteBody>| execute(engine.clone(), body)),
+            post(move |body| execute(engine.clone(), body)),
         )
         .route("/api/collections", get(list_collections).post(save_collection))
         .route(
@@ -70,55 +52,4 @@ async fn app_js() -> Response {
         include_str!("../static/app.js"),
     )
         .into_response()
-}
-
-async fn execute(
-    engine: Engine,
-    body: Json<ExecuteBody>,
-) -> Result<Json<ExecuteResponse>, (StatusCode, String)> {
-    match engine.execute(&body.request).await {
-        Ok(response) => Ok(Json(ExecuteResponse { response })),
-        Err(err) => Err((StatusCode::BAD_REQUEST, err.to_string())),
-    }
-}
-
-async fn list_collections() -> Result<Json<Vec<CollectionSummary>>, (StatusCode, String)> {
-    let storage = Storage::new().map_err(internal)?;
-    let collections = storage
-        .list()
-        .map_err(internal)?
-        .into_iter()
-        .map(|c| CollectionSummary { name: c.name, size: c.size })
-        .collect();
-    Ok(Json(collections))
-}
-
-async fn save_collection(
-    Json(collection): Json<Collection>,
-) -> Result<(StatusCode, Json<Collection>), (StatusCode, String)> {
-    let storage = Storage::new().map_err(internal)?;
-    storage.save(&collection).map_err(internal)?;
-    Ok((StatusCode::CREATED, Json(collection)))
-}
-
-async fn load_collection(
-    Path(name): Path<String>,
-) -> Result<Json<Collection>, (StatusCode, String)> {
-    let storage = Storage::new().map_err(internal)?;
-    match storage.load(&name) {
-        Ok(collection) => Ok(Json(collection)),
-        Err(err) => Err((StatusCode::NOT_FOUND, err.to_string())),
-    }
-}
-
-async fn delete_collection(
-    Path(name): Path<String>,
-) -> Result<StatusCode, (StatusCode, String)> {
-    let storage = Storage::new().map_err(internal)?;
-    storage.delete(&name).map_err(internal)?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
-fn internal(err: anyhow::Error) -> (StatusCode, String) {
-    (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
 }
