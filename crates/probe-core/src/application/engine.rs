@@ -3,7 +3,7 @@ use std::time::Instant;
 use anyhow::{Context, Result};
 use reqwest::Method;
 
-use crate::model::{Body, Request, Response};
+use crate::domain::{Body, Request, Response};
 
 #[derive(Clone)]
 pub struct Engine {
@@ -98,7 +98,7 @@ impl Engine {
             validation_results: vec![],
         };
 
-        result.validation_results = crate::validation::run(&req.validations, &result);
+        result.validation_results = crate::application::validation::run(&req.validations, &result);
         Ok(result)
     }
 }
