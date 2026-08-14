@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>probe</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <aside id="sidebar">
+    <h1>probe</h1>
+    <div class="sidebar-actions">
+      <button id="new-collection" title="Crear colección vacía">+ Colección</button>
+      <button id="new-request" title="Nueva solicitud en el editor">+ Solicitud</button>
+    </div>
+    <div id="collection-list"></div>
+  </aside>
+
+  <main>
+    <section id="editor">
+      <div class="request-bar">
+        <input id="method" list="methods" value="GET" spellcheck="false">
+        <datalist id="methods">
+          <option value="GET"><option value="POST"><option value="PUT">
+          <option value="PATCH"><option value="DELETE"><option value="HEAD">
+          <option value="OPTIONS"><option value="TRACE">
+        </datalist>
+        <input id="url" placeholder="https://api.example.com/recurso" spellcheck="false">
+        <button id="send" class="primary">Enviar</button>
+        <button id="save" title="Guardar en la colección actual">Guardar</button>
+      </div>
+      <div class="request-bar sub">
+        <input id="req-name" placeholder="Nombre de la solicitud" spellcheck="false">
+        <label class="inline"><input id="follow-redirects" type="checkbox" checked> Seguir redirects</label>
+        <label class="inline">Timeout <input id="timeout" type="number" value="30" min="1"> s</label>
+      </div>
+
+      <nav class="tabs">
+        <button data-tab="query" class="active">Query</button>
+        <button data-tab="headers">Headers</button>
+        <button data-tab="body">Body</button>
+        <button data-tab="validations">Validaciones</button>
+      </nav>
+
+      <div id="tab-query" class="tab active">
+        <div class="kv-list" id="query-list"></div>
+        <button class="add-row" data-list="query-list">+ Agregar</button>
+      </div>
+
+      <div id="tab-headers" class="tab">
+        <div class="kv-list" id="headers-list"></div>
+        <button class="add-row" data-list="headers-list">+ Agregar</button>
+      </div>
+
+      <div id="tab-body" class="tab">
+        <div class="body-toolbar">
+          <select id="body-type">
+            <option value="none">Sin cuerpo</option>
+            <option value="raw">Raw</option>
+            <option value="urlencoded">Urlencoded</option>
+          </select>
+        </div>
+        <textarea id="raw-body" placeholder='{"clave": "valor"}' spellcheck="false"></textarea>
+        <div class="kv-list" id="urlencoded-list" style="display:none"></div>
+      </div>
+
+      <div id="tab-validations" class="tab">
+        <div id="validation-list"></div>
+        <button id="add-validation">+ Agregar validación</button>
+      </div>
+    </section>
+
+    <section id="response">
+      <div id="resp-summary">
+        <span id="resp-status"></span>
+        <span id="resp-duration"></span>
+      </div>
+      <div id="resp-error"></div>
+      <div id="resp-validations"></div>
+      <h3>Headers de respuesta</h3>
+      <div id="resp-headers"></div>
+      <h3>Cuerpo</h3>
+      <pre id="resp-body"></pre>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
