@@ -14,28 +14,29 @@
       <button id="new-request" title="Nueva solicitud en el editor">+ Solicitud</button>
     </div>
     <div id="collection-list"></div>
+    <p id="sidebar-empty" class="empty-hint">Aún no hay colecciones.<br>Creá una para empezar.</p>
   </aside>
 
   <main>
-    <section id="editor">
+    <section id="editor" aria-label="Editor de solicitud">
       <div class="request-bar">
-        <input id="method" list="methods" value="GET" spellcheck="false">
+        <input id="method" list="methods" value="GET" spellcheck="false" aria-label="Método HTTP">
         <datalist id="methods">
           <option value="GET"><option value="POST"><option value="PUT">
           <option value="PATCH"><option value="DELETE"><option value="HEAD">
           <option value="OPTIONS"><option value="TRACE">
         </datalist>
-        <input id="url" placeholder="https://api.example.com/recurso" spellcheck="false">
-        <button id="send" class="primary">Enviar</button>
+        <input id="url" placeholder="https://api.example.com/recurso" spellcheck="false" aria-label="URL">
+        <button id="send" class="primary" title="Enviar solicitud">Enviar</button>
         <button id="save" title="Guardar en la colección actual">Guardar</button>
       </div>
       <div class="request-bar sub">
-        <input id="req-name" placeholder="Nombre de la solicitud" spellcheck="false">
+        <input id="req-name" placeholder="Nombre de la solicitud" spellcheck="false" aria-label="Nombre de la solicitud">
         <label class="inline"><input id="follow-redirects" type="checkbox" checked> Seguir redirects</label>
-        <label class="inline">Timeout <input id="timeout" type="number" value="30" min="1"> s</label>
+        <label class="inline">Timeout <input id="timeout" type="number" value="30" min="1" aria-label="Timeout en segundos"> s</label>
       </div>
 
-      <nav class="tabs">
+      <nav class="tabs" aria-label="Configuración de la solicitud">
         <button data-tab="query" class="active">Query</button>
         <button data-tab="headers">Headers</button>
         <button data-tab="body">Body</button>
@@ -54,13 +55,13 @@
 
       <div id="tab-body" class="tab">
         <div class="body-toolbar">
-          <select id="body-type">
+          <select id="body-type" aria-label="Tipo de body">
             <option value="none">Sin cuerpo</option>
             <option value="raw">Raw</option>
             <option value="urlencoded">Urlencoded</option>
           </select>
         </div>
-        <textarea id="raw-body" placeholder='{"clave": "valor"}' spellcheck="false"></textarea>
+        <textarea id="raw-body" placeholder='{"clave": "valor"}' spellcheck="false" aria-label="Body raw"></textarea>
         <div class="kv-list" id="urlencoded-list" style="display:none"></div>
       </div>
 
@@ -70,20 +71,50 @@
       </div>
     </section>
 
-    <section id="response">
+    <div id="splitter" role="separator" aria-orientation="vertical" title="Ajustar ancho del editor"></div>
+
+    <section id="response" aria-label="Respuesta">
       <div id="resp-summary">
         <span id="resp-status"></span>
         <span id="resp-duration"></span>
+        <span id="resp-vcount"></span>
       </div>
       <div id="resp-error"></div>
-      <div id="resp-validations"></div>
-      <h3>Headers de respuesta</h3>
-      <div id="resp-headers"></div>
-      <h3>Cuerpo</h3>
-      <pre id="resp-body"></pre>
+
+      <nav class="tabs" aria-label="Vistas de la respuesta">
+        <button data-tab="body" class="active">Cuerpo</button>
+        <button data-tab="headers">Headers</button>
+        <button data-tab="validations">Validaciones</button>
+      </nav>
+
+      <div id="rtab-body" class="tab active">
+        <pre id="resp-body"></pre>
+      </div>
+      <div id="rtab-headers" class="tab">
+        <div id="resp-headers"></div>
+      </div>
+      <div id="rtab-validations" class="tab">
+        <div id="resp-validations"></div>
+      </div>
     </section>
   </main>
 
+  <div id="save-modal" class="modal hidden">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="save-modal-title">
+      <h2 id="save-modal-title">Guardar en colección</h2>
+      <p class="modal-req-name" id="save-modal-request"></p>
+      <div id="save-collection-list"></div>
+      <div class="modal-new">
+        <input id="new-collection-name" placeholder="O crear una nueva colección…" spellcheck="false" aria-label="Nombre de la nueva colección">
+        <button id="create-and-save">Crear y guardar</button>
+      </div>
+      <div class="modal-actions">
+        <button id="save-cancel">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden" role="status"></div>
   <script src="/app.js"></script>
 </body>
 </html>

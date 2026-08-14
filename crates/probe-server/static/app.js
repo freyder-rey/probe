@@ -164,6 +164,7 @@ function loadRequest(req) {
   if (!req) return;
   $("#req-name").value = req.name || "";
   $("#method").value = req.method || "GET";
+  updateMethodColor();
   $("#url").value = req.url || "";
   $("#timeout").value = req.timeoutSecs ?? 30;
   $("#follow-redirects").checked = req.followRedirects !== false;
@@ -205,6 +206,17 @@ function onBodyTypeChange() {
   $("#urlencoded-list").style.display = type === "urlencoded" ? "block" : "none";
 }
 
+// ---------- Toast ----------
+
+let toastTimer;
+function showToast(msg, ok = true) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = ok ? "ok" : "error";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = "hidden"; }, 2600);
+}
+
 // ---------- Respuesta ----------
 
 function prettyJson(text) {
@@ -224,9 +236,19 @@ function renderResponse(resp) {
 
   $("#resp-error").textContent = "";
 
+  const vres = resp.validationResults || [];
+  const vcount = $("#resp-vcount");
+  if (vres.length) {
+    const passed = vres.filter((v) => v.passed).length;
+    vcount.textContent = `✓ ${passed}/${vres.length} validaciones`;
+    vcount.className = passed === vres.length ? "pass" : "fail";
+  } else {
+    vcount.className = "hidden";
+  }
+
   const vwrap = $("#resp-validations");
   vwrap.innerHTML = "";
-  for (const v of resp.validationResults || []) {
+  for (const v of vres) {
     const el = document.createElement("div");
     el.className = "validation-result " + (v.passed ? "pass" : "fail");
     el.innerHTML = `<span class="mark">${v.passed ? "✓" : "✗"}</span>
@@ -246,6 +268,7 @@ function renderError(msg) {
   $("#resp-status").textContent = "";
   $("#resp-status").className = "";
   $("#resp-duration").textContent = "";
+  $("#resp-vcount").className = "hidden";
   $("#resp-validations").innerHTML = "";
   $("#resp-headers").innerHTML = "";
   $("#resp-body").textContent = "";
@@ -255,7 +278,9 @@ function renderError(msg) {
 async function send() {
   const request = buildRequest();
   if (!request.url) { renderError("Falta la URL."); return; }
-  $("#send").disabled = true;
+  const btn = $("#send");
+  btn.disabled = true;
+  btn.textContent = "Enviando…";
   try {
     const res = await fetch("/api/execute", {
       method: "POST",
@@ -271,7 +296,8 @@ async function send() {
   } catch (err) {
     renderError("Error: " + err.message);
   } finally {
-    $("#send").disabled = false;
+    btn.disabled = false;
+    btn.textContent = "Enviar";
   }
 }
 
@@ -325,6 +351,7 @@ function renderCollections() {
 
     list.appendChild(box);
   }
+  $("#sidebar-empty").classList.toggle("hidden", state.collections.length > 0);
 }
 
 function renderRequests(box, requests) {
@@ -332,7 +359,7 @@ function renderRequests(box, requests) {
   for (const r of requests) {
     const el = document.createElement("div");
     el.className = "request-item";
-    el.textContent = `${r.method} ${r.name}`;
+    el.innerHTML = `<span class="method ${escapeHtml(r.method.toLowerCase())}">${escapeHtml(r.method)}</span> ${escapeHtml(r.name)}`;
     el.addEventListener("click", () => {
       $$(".request-item").forEach((n) => n.classList.remove("active"));
       el.classList.add("active");
@@ -343,29 +370,108 @@ function renderRequests(box, requests) {
   box.style.display = "block";
 }
 
-async function saveRequest() {
+function saveRequest() {
   const request = buildRequest();
   if (!request.url) { renderError("Falta la URL para guardar."); return; }
+  openSaveModal(request);
+}
 
-  if (!state.current) {
-    const name = prompt("Nombre de la nueva colección:");
-    if (!name || !name.trim()) return;
-    state.current = { name: name.trim(), version: "1", requests: [] };
+// ---------- Modal de guardado ----------
+
+let pendingSaveRequest = null;
+
+async function saveToCollection(name, request) {
+  const res = await fetch(`/api/collections/${encodeURIComponent(name)}`);
+  if (!res.ok) throw new Error("No se pudo cargar la colección.");
+  const collection = await res.json();
+  const idx = collection.requests.findIndex((r) => r.name === request.name);
+  if (idx >= 0) collection.requests[idx] = request;
+  else collection.requests.push(request);
+  const saveRes = await fetch("/api/collections", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(collection),
+  });
+  if (!saveRes.ok) throw new Error(await saveRes.text());
+  return collection;
+}
+
+function openSaveModal(request) {
+  pendingSaveRequest = request;
+  $("#save-modal-request").textContent = `«${request.name}» — ${request.method} ${request.url}`;
+  renderSaveCollections();
+  $("#save-modal").classList.remove("hidden");
+  const newName = $("#new-collection-name");
+  newName.value = "";
+  setTimeout(() => newName.focus(), 0);
+}
+
+function closeSaveModal() {
+  pendingSaveRequest = null;
+  $("#save-modal").classList.add("hidden");
+}
+
+function renderSaveCollections() {
+  const list = $("#save-collection-list");
+  list.innerHTML = "";
+  if (!state.collections.length) {
+    list.innerHTML = `<p class="empty-hint-modal">Aún no hay colecciones. Creá una abajo.</p>`;
+    return;
   }
+  for (const c of state.collections) {
+    const isCurrent = state.current && state.current.name === c.name;
+    const el = document.createElement("div");
+    el.className = "save-collection-item" + (isCurrent ? " current" : "");
+    el.innerHTML = `<span class="icon">▸</span><span>${escapeHtml(c.name)}</span>${isCurrent ? `<span class="tag">actual</span>` : ""}`;
+    el.addEventListener("click", () => finishSave(c.name));
+    list.appendChild(el);
+  }
+}
 
-  const idx = state.current.requests.findIndex((r) => r.name === request.name);
-  if (idx >= 0) state.current.requests[idx] = request;
-  else state.current.requests.push(request);
+async function finishSave(name) {
+  const request = pendingSaveRequest;
+  closeSaveModal();
+  if (!request) return;
+  try {
+    const collection = await saveToCollection(name, request);
+    await refreshCollections();
+    renderCollections();
+    await expandCollection(name);
+    showToast(`Guardada «${request.name}» en «${collection.name}».`);
+  } catch (err) {
+    showToast("Error al guardar: " + err.message, false);
+  }
+}
 
+async function createAndSave() {
+  const name = $("#new-collection-name").value.trim();
+  if (!name) return;
+  const request = pendingSaveRequest;
+  closeSaveModal();
+  if (!request) return;
+  const collection = { name, version: "1", requests: [request] };
   const res = await fetch("/api/collections", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(state.current),
+    body: JSON.stringify(collection),
   });
-  if (!res.ok) { renderError("Error al guardar: " + (await res.text())); return; }
+  if (!res.ok) { showToast("Error al guardar: " + (await res.text()), false); return; }
   await refreshCollections();
   renderCollections();
-  renderError("");
+  await expandCollection(name);
+  showToast(`Guardada «${request.name}» en «${name}».`);
+}
+
+async function expandCollection(name) {
+  const res = await fetch(`/api/collections/${encodeURIComponent(name)}`);
+  if (!res.ok) return;
+  state.current = await res.json();
+  const box = Array.from($$(".collection")).find((b) =>
+    b.querySelector(".collection-head .name").textContent === name);
+  if (box) {
+    renderRequests(box.querySelector(".requests"), state.current.requests);
+    box.querySelector(".requests").style.display = "block";
+  }
 }
 
 // ---------- Utilidades ----------
@@ -382,20 +488,84 @@ function escapeAttr(s) {
 
 // ---------- Init ----------
 
-function bindEvents() {
-  $$(".tabs button").forEach((btn) => {
+function bindTabs(scope, idPrefix) {
+  $$(`${scope} .tabs button`).forEach((btn) => {
     btn.addEventListener("click", () => {
-      $$(".tabs button").forEach((b) => b.classList.remove("active"));
-      $$(".tab").forEach((t) => t.classList.remove("active"));
+      $$(`${scope} .tabs button`).forEach((b) => b.classList.remove("active"));
+      $$(`${scope} .tab`).forEach((t) => t.classList.remove("active"));
       btn.classList.add("active");
-      $("#tab-" + btn.dataset.tab).classList.add("active");
+      $(`#${idPrefix}-` + btn.dataset.tab).classList.add("active");
     });
   });
+}
+
+const METHOD_COLORS = {
+  GET: "var(--green)",
+  POST: "var(--orange)",
+  PUT: "var(--accent)",
+  PATCH: "var(--teal)",
+  DELETE: "var(--red)",
+  HEAD: "var(--purple)",
+};
+
+function updateMethodColor() {
+  const m = $("#method").value.trim().toUpperCase();
+  const color = METHOD_COLORS[m];
+  $("#method").style.color = color || "";
+  $("#method").style.borderColor = color || "";
+}
+
+function initSplitter() {
+  const splitter = $("#splitter");
+  const editor = $("#editor");
+  const main = splitter.parentElement;
+  let dragging = false;
+
+  splitter.addEventListener("mousedown", (e) => {
+    dragging = true;
+    splitter.classList.add("dragging");
+    document.body.style.cursor = "col-resize";
+    e.preventDefault();
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    const rect = main.getBoundingClientRect();
+    let width = e.clientX - rect.left - splitter.offsetWidth / 2;
+    const min = 320;
+    const max = Math.max(min, rect.width - 320);
+    width = Math.max(min, Math.min(width, max));
+    editor.style.flex = `0 0 ${width}px`;
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false;
+    splitter.classList.remove("dragging");
+    document.body.style.cursor = "";
+  });
+}
+
+function bindEvents() {
+  bindTabs("#editor", "tab");
+  bindTabs("#response", "rtab");
 
   $("#send").addEventListener("click", send);
   $("#url").addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
   $("#save").addEventListener("click", saveRequest);
   $("#body-type").addEventListener("change", onBodyTypeChange);
+  $("#method").addEventListener("input", updateMethodColor);
+  $("#save-cancel").addEventListener("click", closeSaveModal);
+  $("#create-and-save").addEventListener("click", createAndSave);
+  $("#new-collection-name").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); createAndSave(); }
+  });
+  $("#save-modal").addEventListener("click", (e) => {
+    if (e.target === $("#save-modal")) closeSaveModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("#save-modal").classList.contains("hidden")) closeSaveModal();
+  });
   $("#add-validation").addEventListener("click", () => {
     $("#validation-list").appendChild(makeValidationRow());
   });
@@ -422,8 +592,10 @@ function bindEvents() {
 
 (async function init() {
   bindEvents();
+  initSplitter();
   onBodyTypeChange();
   await refreshCollections();
   renderCollections();
   loadRequest(newRequest());
+  updateMethodColor();
 })();
