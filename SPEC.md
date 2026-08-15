@@ -131,6 +131,26 @@ Estos puntos se evalúan en etapas posteriores, a definir conforme avance el pro
 - Es la misma app que Electron envolverá como cáscara de escritorio en una
   etapa posterior.
 
+### RF-9: Tests de carga
+
+- Un **test** agrupa un subconjunto de solicitudes de una colección
+  (`requestNames`, vacío = todas) y las ejecuta en **secuencia** `iterations`
+  veces, con un `delayMs` configurable entre solicitudes.
+- **Datos variables (CSV)**: el test puede apuntar a un archivo CSV local
+  (`csv: { type: "path", path: "…" }`). La primera fila define los nombres de
+  variables; cada fila siguiente define una ejecución del flujo (se **cicla** si
+  hay más iteraciones que filas). Las variables se interpolan en URL, query,
+  headers y body con la sintaxis `{{nombre}}` (decisión D5).
+- Las **validaciones** de cada solicitud se evalúan en cada ejecución; una
+  solicitud cuenta como fallida si alguna validación no pasa o hubo error de red.
+- **V1**: ejecución secuencial (una petición a la vez, con delays reales),
+  sin pausa/reanudar; solo **detener**. El reporte se genera al final (o
+  parcial si se detuvo).
+- **Reporte**: duración, total de solicitudes, OK/fallidas, tiempo promedio y
+  p95, desglose por solicitud y primeros errores encontrados.
+- Superficies: CLI (`probe test list|run`), Web (panel de tests) y API
+  (`/api/tests/{collection}/{test}/start|status|stop`).
+
 ## 5. Arquitectura
 
 ```
@@ -187,9 +207,20 @@ Cada colección es un archivo `*.json` con esta forma (provisional):
       "headers": [ { "key": "Authorization", "value": "Bearer xyz", "enabled": true } ],
       "body": { "type": "none" }
     }
+  ],
+  "tests": [
+    {
+      "name": "Smoke",
+      "requestNames": [],
+      "iterations": 10,
+      "delayMs": 200,
+      "csv": { "type": "path", "path": "~/datos.csv" }
+    }
   ]
 }
 ```
+
+El campo `tests` es opcional y las colecciones viejas (sin él) siguen cargando.
 
 ### Markdown
 
@@ -259,9 +290,12 @@ probe/
   cáscara de escritorio en etapa posterior que carga la misma UI.
 - **D4 — Timeout/redirects**: timeout 30 s configurable; seguir redirecciones
   hasta 10 por defecto, desactivable.
-- **D5 — Variables**: se define ya la sintaxis `{{nombre}}`; la implementación es
-  de etapa posterior. Aplicará a URL, query, headers y body (referencias
-  `{{env.NOMBRE}}` para entornos, cuando existan).
+- **D5 — Variables**: sintaxis `{{nombre}}` definida e **implementada** (los
+  tests de carga interpolan CSV). Aplican a URL, query, headers y body. Las
+  referencias `{{env.NOMBRE}}` para entornos quedan de etapa posterior.
+- **D6 — Tests de carga**: v1 secuencial (una petición a la vez), sin
+  concurrencia y sin pausa/reanudar; solo detener. El archivo CSV se guarda como
+  ruta (`CsvSource::Path`) y se carga en memoria al ejecutar.
 
 ## 10. Criterios de aceptación (etapa 1)
 
@@ -274,3 +308,6 @@ probe/
 - [ ] `probe collection list|save|new|delete` administran colecciones por usuario.
 - [ ] Las validaciones declarativas se ejecutan y muestran PASÓ/FALLÓ en el CLI.
 - [ ] La interfaz web permite editar/enviar solicitudes y ver respuestas y validaciones.
+- [ ] `probe test list|run` listan y ejecutan tests de carga con reporte.
+- [ ] Un test puede leer datos de un CSV e interpolar `{{variables}}`.
+- [ ] El test se puede detener (CLI con Ctrl+C, web con el botón detener).

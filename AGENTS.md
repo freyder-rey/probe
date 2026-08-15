@@ -16,10 +16,10 @@ crates/
 ├── probe-core/     # núcleo compartido (capas, ver abajo)
 │   └── src/
 │       ├── domain/          # modelos puros del dominio (sin IO ni HTTP)
-│       ├── application/     # servicios (engine HTTP, validaciones, runner de carga futuro)
-│       └── infrastructure/  # persistencia (storage) e IO
-├── probe-cli/      # binario `probe` (clap): main.rs + args.rs + run.rs + collection.rs
-└── probe-server/   # API axum + frontend estático: main.rs (router) + handlers.rs
+│       ├── application/     # servicios (engine HTTP, validaciones, interpolación, runner de carga)
+│       └── infrastructure/  # persistencia (storage) e IO (csv)
+├── probe-cli/      # binario `probe` (clap): main.rs + args.rs + run.rs + collection.rs + test.rs
+└── probe-server/   # API axum + frontend estático: main.rs (router) + handlers.rs + state.rs
 ```
 
 - `probe-core` es el núcleo compartido; CLI y server lo usan. Cada capa declara
@@ -48,7 +48,7 @@ crates/
 
 ```sh
 cargo build                 # compila todo el workspace
-cargo test --workspace      # 9 tests unitarios
+cargo test --workspace      # 19 tests unitarios + integración del runner
 cargo clippy --workspace    # debe quedar sin warnings
 cargo run -p probe-cli -- run https://httpbin.org/json
 cargo run -p probe-server   # web en http://127.0.0.1:7878
@@ -58,7 +58,8 @@ cargo run -p probe-server   # web en http://127.0.0.1:7878
 
 - Por usuario: `~/.probe/collections/` (Linux/macOS), `%USERPROFILE%\.probe\`
   (Windows). Override con `PROBE_COLLECTIONS_DIR` (usar en tests).
-- Formato: JSON (`name`, `version`, `requests[]`). El Markdown es solo lectura/export.
+- Formato: JSON (`name`, `version`, `requests[]`, `tests[]` opcional). El
+  Markdown es solo lectura/export. Las colecciones viejas (sin `tests`) siguen cargando.
 
 ## Git / flujo de trabajo
 
@@ -72,5 +73,14 @@ cargo run -p probe-server   # web en http://127.0.0.1:7878
 
 Etapa 1 completa (requests con cualquier verbo, persistencia por usuario,
 validaciones declarativas, CLI y web). PR #1 `feature/core-cli-web` → develop.
-Pendientes de roadmap: export Markdown, Electron, variables `{{nombre}}`
-(sintaxis ya definida en SPEC, implementación futura).
+
+En curso (PR #2 `refactor/arquitectura-capas-frontend` → develop): reescritura
+del núcleo por capas (domain/application/infrastructure) y split CLI/server.
+
+En desarrollo (`feature/load-tests`): **tests de carga** — runner secuencial con
+delay e iteraciones, datos CSV interpolados con `{{variable}}` (interpolación ya
+implementada en `application/interpolation.rs`), reporte con avg/p95 y detener
+solo (sin pausa, v1). Superficie: core + CLI (`probe test list|run`) + web
+(panel de tests) + API `/api/tests/{collection}/{test}/start|status|stop`.
+
+Pendientes de roadmap: export Markdown, Electron.

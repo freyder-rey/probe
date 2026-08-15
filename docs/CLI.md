@@ -13,9 +13,10 @@ disponible vía API del servidor (ver [API del servidor](#api-del-servidor)).
 4. [Cuerpos de solicitud](#4-cuerpos-de-solicitud)
 5. [Validaciones declarativas](#5-validaciones-declarativas)
 6. [Colecciones](#6-colecciones)
-7. [Formato JSON de una colección](#7-formato-json-de-una-colección)
-8. [Almacenamiento por usuario](#8-almacenamiento-por-usuario)
-9. [API del servidor](#9-api-del-servidor)
+7. [Tests de carga](#7-tests-de-carga)
+8. [Formato JSON de una colección](#8-formato-json-de-una-colección)
+9. [Almacenamiento por usuario](#9-almacenamiento-por-usuario)
+10. [API del servidor](#10-api-del-servidor)
 
 ---
 
@@ -49,11 +50,14 @@ probe collection --help
 ```
 probe
 ├── run [URL] [opciones]          # ejecuta una solicitud HTTP
-└── collection
-    ├── list                      # lista colecciones guardadas
-    ├── save <archivo.json>       # importa una colección desde archivo
-    ├── new <nombre>              # crea una colección vacía
-    └── delete <nombre>           # elimina una colección guardada
+├── collection
+│   ├── list                      # lista colecciones guardadas
+│   ├── save <archivo.json>       # importa una colección desde archivo
+│   ├── new <nombre>              # crea una colección vacía
+│   └── delete <nombre>           # elimina una colección guardada
+└── test
+    ├── list <colección>          # lista los tests de una colección
+    └── run <colección> <test>    # ejecuta un test de carga
 ```
 
 ---
@@ -230,7 +234,63 @@ no la encuentra, falla con un error claro.
 
 ---
 
-## 7. Formato JSON de una colección
+## 7. Tests de carga
+
+Un test ejecuta un subconjunto de solicitudes de una colección en **secuencia**,
+un número de veces (iteraciones), con un delay configurable entre solicitudes.
+Las validaciones de cada solicitud se evalúan en cada ejecución.
+
+```sh
+# Listar los tests de una colección
+probe test list "Mi API"
+
+# Ejecutar un test (Ctrl+C para detener)
+probe test run "Mi API" "Smoke"
+```
+
+Salida:
+
+```
+Ejecutando test "Smoke" (Ctrl+C para detener)...
+  10 de 10 solicitudes
+
+== Reporte del test "Smoke" (PASÓ) ==
+  Duración: 2413 ms
+  Solicitudes: 10 total, 10 OK, 0 fallidas
+  Tiempo por solicitud: promedio 241 ms, p95 412 ms
+
+  Por solicitud:
+    login — 10 total, 10 OK, 0 fallidas
+```
+
+Opciones para sobreescribir la configuración del test:
+
+```sh
+probe test run "Mi API" "Smoke" --iterations 50 --delay 100
+```
+
+### Datos variables con CSV
+
+Un test puede leer filas de un archivo CSV local. La primera fila son los
+**nombres de variables**; cada fila siguiente ejecuta el flujo con esos valores,
+interpolados con la sintaxis `{{variable}}` en URL, query, headers y body. Si
+hay más iteraciones que filas, el CSV se **cicla**.
+
+```sh
+# usuarios.csv
+# id,nombre
+# 1,ana
+# 2,leo
+
+probe test run "Mi API" "Usuarios por lote"
+```
+
+Si el test referencia una solicitud que no existe, o el CSV no se puede leer, el
+comando falla con un error claro antes de ejecutar.
+
+---
+
+## 8. Formato JSON de una colección
 
 Las colecciones se guardan y se intercambian como JSON. Ejemplo completo:
 
@@ -257,9 +317,30 @@ Las colecciones se guardan y se intercambian como JSON. Ejemplo completo:
         { "kind": "json_exists", "name": "Tiene id", "path": "$.id" }
       ]
     }
+  ],
+  "tests": [
+    {
+      "name": "Smoke",
+      "requestNames": [],
+      "iterations": 10,
+      "delayMs": 200,
+      "csv": { "type": "path", "path": "~/datos.csv" }
+    }
   ]
 }
 ```
+
+### Campos de un test
+
+| campo          | tipo                       | obligatorio | descripción                                   |
+|----------------|----------------------------|-------------|-----------------------------------------------|
+| `name`         | string                     | sí          | nombre único del test                         |
+| `requestNames` | lista de string            | no          | solicitudes del flujo; vacío = todas          |
+| `iterations`   | número                     | no          | veces que corre el flujo (default `1`)        |
+| `delayMs`      | número                     | no          | pausa entre solicitudes (default `0`)         |
+| `csv`          | `{ "type": "path", "path" }` | no        | archivo CSV con variables `{{nombre}}`        |
+
+El campo `tests` es opcional: las colecciones viejas (sin él) siguen cargando.
 
 ### Campos de una solicitud
 
@@ -291,7 +372,7 @@ ignoran al enviar la solicitud.
 
 ---
 
-## 8. Almacenamiento por usuario
+## 9. Almacenamiento por usuario
 
 Las colecciones viven en el **directorio local de cada usuario**:
 
@@ -313,7 +394,7 @@ probe collection list
 
 ---
 
-## 9. API del servidor
+## 10. API del servidor
 
 Además del CLI, existe `probe-server`, que expone lo mismo vía HTTP. Ideal para
 la interfaz web (y el futuro Electron).
@@ -333,6 +414,9 @@ cargo run -p probe-server
 | POST   | `/api/collections`          | guarda una colección (body = colección JSON) |
 | GET    | `/api/collections/{name}`   | carga una colección por nombre               |
 | DELETE | `/api/collections/{name}`   | elimina una colección                        |
+| POST   | `/api/tests/{c}/{t}/start`  | inicia un test en segundo plano              |
+| GET    | `/api/tests/{c}/{t}/status` | estado y reporte de la ejecución             |
+| POST   | `/api/tests/{c}/{t}/stop`   | detiene una ejecución en curso               |
 
 ### Ejemplo: ejecutar una solicitud
 

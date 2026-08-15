@@ -16,6 +16,33 @@ pub enum Command {
     Run(RunArgs),
     /// Administra colecciones guardadas
     Collection(CollectionArgs),
+    /// Ejecuta tests de carga sobre una colección
+    Test(TestArgs),
+}
+
+#[derive(Args)]
+pub struct TestArgs {
+    #[command(subcommand)]
+    pub command: TestCommand,
+}
+
+#[derive(Subcommand)]
+pub enum TestCommand {
+    /// Lista los tests definidos en una colección
+    List { collection: String },
+    /// Ejecuta un test de carga
+    Run {
+        /// Colección (nombre o ruta .json)
+        collection: String,
+        /// Nombre del test a ejecutar
+        test: String,
+        /// Sobreescribe las iteraciones del test
+        #[arg(long)]
+        iterations: Option<u64>,
+        /// Sobreescribe el delay entre peticiones (ms)
+        #[arg(long)]
+        delay: Option<u64>,
+    },
 }
 
 #[derive(Args)]
