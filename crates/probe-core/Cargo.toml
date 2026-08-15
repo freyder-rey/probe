@@ -11,6 +11,7 @@ serde_json.workspace = true
 tokio.workspace = true
 anyhow.workspace = true
 csv.workspace = true
+async-trait.workspace = true
 
 [dev-dependencies]
 axum.workspace = true

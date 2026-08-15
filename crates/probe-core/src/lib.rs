@@ -9,9 +9,13 @@ pub mod application;
 pub mod domain;
 pub mod infrastructure;
 
-pub use application::{interpolate, Engine, Runner};
-pub use domain::{
-    Body, Collection, CsvSource, KeyValue, LoadTest, LoadTestReport, Request, RequestSummary,
-    Response, Validation, ValidationResult,
+pub use application::{
+    interpolate, CollectionRepository, CsvRowLoader, Engine, HttpExecutor, LoadTestRunner, Runner,
 };
-pub use infrastructure::Storage;
+pub use domain::{
+    Body, Collection, CollectionSummary, CsvSource, KeyValue, LoadTest, LoadTestReport, Request,
+    RequestSummary, Response, Validation, ValidationResult,
+};
+pub use infrastructure::{
+    load_csv_rows, CsvLoader, FileCollectionRepository, InMemoryCollectionRepository,
+};

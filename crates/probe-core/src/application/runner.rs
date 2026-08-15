@@ -1,17 +1,18 @@
 use std::{
     collections::HashMap,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
 use anyhow::{bail, Context, Result};
+use async_trait::async_trait;
 use tokio::time::{sleep, Duration};
 
-use crate::{
-    domain::{Body, CsvSource, KeyValue, LoadTest, LoadTestReport, Request, RequestSummary},
-    infrastructure::load_csv_rows,
-};
+use crate::domain::{Body, CsvSource, KeyValue, LoadTest, LoadTestReport, Request, RequestSummary};
 
-use super::{engine::Engine, interpolation::interpolate};
+use super::{interpolation::interpolate, ports::CsvRowLoader, ports::HttpExecutor, ports::LoadTestRunner};
 
 struct Sample {
     duration_ms: u128,
@@ -22,14 +23,13 @@ struct Sample {
 /// Ejecuta tests de carga en secuencia, respetando delays reales entre
 /// solicitudes y aplicando las validaciones de cada solicitud.
 pub struct Runner {
-    engine: Engine,
+    engine: Arc<dyn HttpExecutor>,
+    csv: Arc<dyn CsvRowLoader>,
 }
 
 impl Runner {
-    pub fn new() -> Result<Self> {
-        Ok(Runner {
-            engine: Engine::new()?,
-        })
+    pub fn new(engine: Arc<dyn HttpExecutor>, csv: Arc<dyn CsvRowLoader>) -> Self {
+        Runner { engine, csv }
     }
 
     pub async fn run<F>(
@@ -40,13 +40,15 @@ impl Runner {
         on_progress: F,
     ) -> Result<LoadTestReport>
     where
-        F: Fn(u64, u64),
+        F: Fn(u64, u64) + Send + Sync + 'static,
     {
         let flow = self.select_flow(test, requests)?;
 
         let rows = match &test.csv {
             Some(CsvSource::Path { path }) => {
-                let rows = load_csv_rows(std::path::Path::new(path))
+                let rows = self
+                    .csv
+                    .load(std::path::Path::new(path))
                     .with_context(|| format!("no se pudo cargar el CSV del test \"{}\"", test.name))?;
                 if rows.is_empty() {
                     bail!("el CSV \"{path}\" no tiene filas de datos");
@@ -166,9 +168,16 @@ impl Runner {
     }
 }
 
-impl Default for Runner {
-    fn default() -> Self {
-        Runner::new().expect("fallo al crear el Runner")
+#[async_trait]
+impl LoadTestRunner for Runner {
+    async fn run(
+        &self,
+        test: &LoadTest,
+        requests: &[Request],
+        cancel: Option<&AtomicBool>,
+        on_progress: Box<dyn Fn(u64, u64) + Send + Sync>,
+    ) -> Result<LoadTestReport> {
+        self.run(test, requests, cancel, on_progress).await
     }
 }
 
@@ -216,7 +225,15 @@ mod tests {
     use axum::{extract::Query, http::StatusCode, routing::get, Router};
 
     use super::*;
-    use crate::domain::Validation;
+    use crate::{
+        application::Engine,
+        domain::Validation,
+        infrastructure::CsvLoader,
+    };
+
+    fn runner() -> Runner {
+        Runner::new(Arc::new(Engine::new().unwrap()), Arc::new(CsvLoader))
+    }
 
     async fn spawn_echo_server() -> String {
         let app = Router::new()
@@ -271,7 +288,7 @@ mod tests {
             csv: None,
         };
 
-        let runner = Runner::new().unwrap();
+        let runner = runner();
         let report = runner.run(&test, &requests, None, |_, _| {}).await.unwrap();
 
         assert_eq!(report.total_requests, 6);
@@ -302,7 +319,7 @@ mod tests {
             csv: Some(CsvSource::Path { path: csv.to_string_lossy().into_owned() }),
         };
 
-        let runner = Runner::new().unwrap();
+        let runner = runner();
         let report = runner.run(&test, &requests, None, |_, _| {}).await.unwrap();
 
         // Filas: (1,ana),(2,leo) -> cicladas 4 veces: 1,2,1,2.
@@ -326,7 +343,7 @@ mod tests {
 
         let cancel = std::sync::atomic::AtomicBool::new(false);
         cancel.store(true, std::sync::atomic::Ordering::Relaxed);
-        let runner = Runner::new().unwrap();
+        let runner = runner();
         let report = runner.run(&test, &requests, Some(&cancel), |_, _| {}).await.unwrap();
 
         assert_eq!(report.total_requests, 0);
@@ -342,7 +359,7 @@ mod tests {
             delay_ms: 0,
             csv: None,
         };
-        let runner = Runner::default();
+        let runner = runner();
         let result = runner.select_flow(&test, &requests);
         assert!(result.is_err());
     }

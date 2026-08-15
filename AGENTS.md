@@ -25,8 +25,12 @@ crates/
 - `probe-core` es el núcleo compartido; CLI y server lo usan. Cada capa declara
   su `mod.rs` con re-exports, y sus tests viven en un `tests.rs` hermano
   (`#[cfg(test)] mod tests;`), no dentro de los archivos de negocio.
-- `lib.rs` re-exporta la API pública de consumo (`probe_core::{Engine, Request,
-  Storage, ...}`).
+- `lib.rs` re-exporta la API pública de consumo (`probe_core::{Engine, Runner,
+  Request, CollectionRepository, ...}`).
+- DIP: la capa `application` define puertos (traits `CollectionRepository`,
+  `HttpExecutor`, `CsvRowLoader`, `LoadTestRunner`); `infrastructure` los
+  implementa. CLI y server construyen los concretos en su composition root
+  (`main.rs`) y los inyectan a los handlers/comandos.
 - El frontend lo sirve el server vía `include_str!` desde
   `crates/probe-server/static/` (sin build step). Electron envolverá esta misma
   UI como cáscara de escritorio en una etapa posterior (decisión D3).

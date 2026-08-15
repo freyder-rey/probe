@@ -5,6 +5,8 @@ use std::{
 
 use anyhow::{Context, Result};
 
+use crate::application::CsvRowLoader;
+
 /// Lee un archivo CSV y devuelve una fila por registro.
 /// La primera fila define los nombres de variable (encabezados).
 pub fn load_csv_rows(path: &Path) -> Result<Vec<HashMap<String, String>>> {
@@ -31,4 +33,14 @@ pub fn load_csv_rows(path: &Path) -> Result<Vec<HashMap<String, String>>> {
         rows.push(row);
     }
     Ok(rows)
+}
+
+/// Implementación de `CsvRowLoader` sobre archivos locales.
+#[derive(Default)]
+pub struct CsvLoader;
+
+impl CsvRowLoader for CsvLoader {
+    fn load(&self, path: &Path) -> Result<Vec<HashMap<String, String>>> {
+        load_csv_rows(path)
+    }
 }

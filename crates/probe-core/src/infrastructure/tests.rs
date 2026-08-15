@@ -1,16 +1,17 @@
 use std::{fs, path::Path};
 
 use super::*;
+use crate::application::CollectionRepository;
 use crate::domain::Collection;
 
-fn test_storage() -> Storage {
+fn test_storage() -> FileCollectionRepository {
     let dir = std::env::temp_dir().join(format!(
         "probe-test-{}",
         std::process::id()
     ));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
-    Storage { dir }
+    FileCollectionRepository { dir }
 }
 
 #[test]
@@ -37,10 +38,29 @@ fn save_list_load_delete() {
 }
 
 #[test]
+fn in_memory_repo_round_trips() {
+    let repo = InMemoryCollectionRepository::new();
+    let collection = Collection {
+        name: "memoria".to_string(),
+        version: "1".to_string(),
+        requests: vec![],
+        tests: vec![],
+    };
+
+    repo.save(&collection).unwrap();
+    let list = repo.list().unwrap();
+    assert_eq!(list.len(), 1);
+    assert_eq!(repo.load("memoria").unwrap().name, "memoria");
+    assert!(repo.load("no-existe").is_err());
+    repo.delete("memoria").unwrap();
+    assert!(repo.list().unwrap().is_empty());
+}
+
+#[test]
 fn custom_env_dir_is_used() {
     let dir = std::env::temp_dir().join(format!("probe-env-{}", std::process::id()));
     std::env::set_var("PROBE_COLLECTIONS_DIR", &dir);
-    let storage = Storage::new().unwrap();
+    let storage = FileCollectionRepository::new().unwrap();
     assert_eq!(storage.dir(), dir.as_path());
     std::env::remove_var("PROBE_COLLECTIONS_DIR");
 }

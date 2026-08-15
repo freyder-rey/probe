@@ -13,3 +13,11 @@ pub struct Collection {
     #[serde(default)]
     pub tests: Vec<LoadTest>,
 }
+
+/// Resumen de una colección (para listados). No expone detalles del almacenamiento.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectionSummary {
+    pub name: String,
+    pub size: u64,
+}
