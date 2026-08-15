@@ -1,9 +1,11 @@
-use probe_core::{Collection, Storage};
+use probe_core::{Collection, CollectionRepository, FileCollectionRepository};
 
 use crate::args::CollectionCommand;
 
-pub fn collection(command: CollectionCommand) -> anyhow::Result<()> {
-    let storage = Storage::new()?;
+pub fn collection(
+    command: CollectionCommand,
+    storage: &FileCollectionRepository,
+) -> anyhow::Result<()> {
     match command {
         CollectionCommand::List => {
             let collections = storage.list()?;
@@ -18,7 +20,7 @@ pub fn collection(command: CollectionCommand) -> anyhow::Result<()> {
         }
         CollectionCommand::Save { path } => {
             let collection = storage.load_file(&path)?;
-            let saved = storage.save(&collection)?;
+            let saved = storage.save_path(&collection)?;
             println!("Colección \"{}\" guardada en {}", collection.name, saved.display());
         }
         CollectionCommand::New { name } => {
@@ -28,7 +30,7 @@ pub fn collection(command: CollectionCommand) -> anyhow::Result<()> {
                 requests: vec![],
                 tests: vec![],
             };
-            let saved = storage.save(&collection)?;
+            let saved = storage.save_path(&collection)?;
             println!("Colección vacía creada en {}", saved.display());
         }
         CollectionCommand::Delete { name } => {

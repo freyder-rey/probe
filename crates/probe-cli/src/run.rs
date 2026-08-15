@@ -1,16 +1,21 @@
-use probe_core::{Body, Engine, KeyValue, Request, Response, Storage};
+use std::sync::Arc;
+
+use probe_core::{Body, CollectionRepository, HttpExecutor, KeyValue, Request, Response};
 
 use crate::args::RunArgs;
 
-pub async fn run(args: RunArgs) -> anyhow::Result<()> {
+pub async fn run(
+    args: RunArgs,
+    repo: Arc<dyn CollectionRepository>,
+    engine: Arc<dyn HttpExecutor>,
+) -> anyhow::Result<()> {
     let (target, name) = (args.target.clone(), args.name.clone());
     let request = match (target.as_deref(), name.as_deref()) {
         (Some(target), Some(name)) => {
-            let storage = Storage::new()?;
             let collection = if target.ends_with(".json") {
-                storage.load_file(&std::path::PathBuf::from(target))?
+                repo.load_file(&std::path::PathBuf::from(target))?
             } else {
-                storage.load(target)?
+                repo.load(target)?
             };
             collection
                 .requests
@@ -21,7 +26,6 @@ pub async fn run(args: RunArgs) -> anyhow::Result<()> {
         _ => build_inline_request(args)?,
     };
 
-    let engine = Engine::new()?;
     let response = engine.execute(&request).await?;
     print_response(&response);
     Ok(())

@@ -1,14 +1,24 @@
 use std::time::Instant;
 
 use anyhow::{Context, Result};
+use async_trait::async_trait;
 use reqwest::Method;
 
 use crate::domain::{Body, Request, Response};
+
+use super::ports::HttpExecutor;
 
 #[derive(Clone)]
 pub struct Engine {
     follow: reqwest::Client,
     no_follow: reqwest::Client,
+}
+
+#[async_trait]
+impl HttpExecutor for Engine {
+    async fn execute(&self, req: &Request) -> Result<Response> {
+        Engine::execute(&self, req).await
+    }
 }
 
 impl Engine {
