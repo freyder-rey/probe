@@ -27,12 +27,16 @@
 
       <div id="request-editor">
         <div class="request-bar">
-          <input id="method" list="methods" value="GET" spellcheck="false" aria-label="Método HTTP">
-          <datalist id="methods">
-            <option value="GET"><option value="POST"><option value="PUT">
-            <option value="PATCH"><option value="DELETE"><option value="HEAD">
-            <option value="OPTIONS"><option value="TRACE">
-          </datalist>
+          <select id="method" aria-label="Método HTTP">
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="PATCH">PATCH</option>
+            <option value="DELETE">DELETE</option>
+            <option value="HEAD">HEAD</option>
+            <option value="OPTIONS">OPTIONS</option>
+            <option value="TRACE">TRACE</option>
+          </select>
           <input id="url" placeholder="https://api.example.com/recurso" spellcheck="false" aria-label="URL">
           <button id="send" class="primary" title="Enviar solicitud">Enviar</button>
           <button id="save" title="Guardar en la colección actual">Guardar</button>

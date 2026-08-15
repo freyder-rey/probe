@@ -164,7 +164,10 @@ function renderValidations(validations) {
 function loadRequest(req) {
   if (!req) return;
   $("#req-name").value = req.name || "";
-  $("#method").value = req.method || "GET";
+  const method = (req.method || "GET").toUpperCase();
+  $("#method").value = Array.from($("#method").options).some((o) => o.value === method)
+    ? method
+    : "GET";
   updateMethodColor();
   $("#url").value = req.url || "";
   $("#timeout").value = req.timeoutSecs ?? 30;
@@ -1000,7 +1003,7 @@ function bindEvents() {
   $("#url").addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
   $("#save").addEventListener("click", saveRequest);
   $("#body-type").addEventListener("change", onBodyTypeChange);
-  $("#method").addEventListener("input", updateMethodColor);
+  $("#method").addEventListener("change", updateMethodColor);
   $("#save-cancel").addEventListener("click", closeSaveModal);
   $("#create-and-save").addEventListener("click", createAndSave);
   $("#new-collection-name").addEventListener("keydown", (e) => {
