@@ -219,14 +219,15 @@ body {
 .test-all-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
+  gap: 8px;
+  padding: 8px 10px;
   margin-top: 4px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg-input);
   cursor: pointer;
   font-size: 13px;
+  line-height: 1.2;
 }
 
 .test-all-row:hover { border-color: var(--accent); }
@@ -235,6 +236,7 @@ body {
   margin-left: auto;
   color: var(--text-dim);
   font-size: 12px;
+  white-space: nowrap;
 }
 
 #test-request-list {
@@ -441,7 +443,7 @@ main {
 
 #url { flex: 1; font-family: ui-monospace, monospace; }
 
-input, select, textarea, button {
+input:not([type="checkbox"]), select, textarea, button {
   background: var(--bg-input);
   border: 1px solid var(--border);
   color: var(--text);
@@ -451,7 +453,15 @@ input, select, textarea, button {
   outline: none;
 }
 
-input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+  flex: 0 0 auto;
+}
+
+input:not([type="checkbox"]):focus, select:focus, textarea:focus { border-color: var(--accent); }
 
 button { cursor: pointer; }
 button:hover { border-color: var(--accent); }
