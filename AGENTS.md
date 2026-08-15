@@ -82,8 +82,15 @@ modal de guardado.
 
 ### Dónde quedamos (última sesión)
 
-- **PR #3 abierta** → https://github.com/freyder-rey/probe/pull/3
-  (`feature/load-tests` → `develop`), último commit `748a531`. Contenido:
+- **PR #3 mergeado** → `develop` (merge commit `6b19981`, squash del ex-PR #2 ya
+  incluido). Load tests en `develop`.
+- Antes del merge hubo que **rebasear** `feature/load-tests` sobre `develop`
+  (los commits del refactor por capas y del layout web ya estaban en develop vía
+  PR #2 y git los descartó automáticamente) y crear el fixture
+  `crates/probe-core/src/infrastructure/testdata/usuarios.csv` (los tests lo
+  referenciaban pero estaba gitignoreado en `crates/test/`). Backup local:
+  `backup/load-tests-pre-rebase`.
+- Contenido del PR #3:
   - **probe-core**: runner de tests de carga (secuencial, iteraciones/delay,
     datos CSV interpolados con `{{variable}}`, reporte con avg/p95 y
     cancelación con `AtomicBool`). 19 tests OK.
@@ -101,7 +108,6 @@ modal de guardado.
 
 ### Dónde vamos
 
-1. Revisar y mergear **PR #3** → `develop`; borrar `feature/load-tests`.
-2. Roadmap pendiente: **export Markdown** y **Electron** (envolver la UI como
+1. Roadmap pendiente: **export Markdown** y **Electron** (envolver la UI como
    cáscara de escritorio, decisión D3).
-3. V2 posible de load tests: pausa/reanudar, más métricas en el reporte.
+2. V2 posible de load tests: pausa/reanudar, más métricas en el reporte.
