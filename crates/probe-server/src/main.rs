@@ -1,4 +1,5 @@
 mod handlers;
+mod state;
 
 use axum::{
     http::header,
@@ -8,7 +9,11 @@ use axum::{
 };
 use probe_core::Engine;
 
-use handlers::{delete_collection, execute, list_collections, load_collection, save_collection};
+use handlers::{
+    delete_collection, execute, list_collections, load_collection, save_collection, test_start,
+    test_status, test_stop,
+};
+use state::AppState;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -25,7 +30,11 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/api/collections/{name}",
             get(load_collection).delete(delete_collection),
-        );
+        )
+        .route("/api/tests/{collection}/{test}/start", post(test_start))
+        .route("/api/tests/{collection}/{test}/status", get(test_status))
+        .route("/api/tests/{collection}/{test}/stop", post(test_stop))
+        .with_state(AppState::default());
 
     let addr = "127.0.0.1:7878";
     println!("probe server escuchando en http://{addr}");

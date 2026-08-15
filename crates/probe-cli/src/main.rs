@@ -1,6 +1,7 @@
 mod args;
 mod collection;
 mod run;
+mod test;
 
 use clap::Parser;
 
@@ -12,5 +13,6 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Command::Run(args) => run::run(args).await,
         Command::Collection(args) => collection::collection(args.command),
+        Command::Test(args) => test::test(args).await,
     }
 }

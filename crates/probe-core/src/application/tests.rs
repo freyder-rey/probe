@@ -1,5 +1,20 @@
-use super::validation::{resolve_path, run};
+use std::collections::HashMap;
+
+use super::{interpolate, validation::{resolve_path, run}};
 use crate::domain::{Response, Validation};
+
+#[test]
+fn interpolate_replaces_known_vars_and_keeps_unknown() {
+    let mut vars = HashMap::new();
+    vars.insert("id".to_string(), "42".to_string());
+    vars.insert("nombre".to_string(), "ana".to_string());
+
+    assert_eq!(interpolate("id={{id}}", &vars), "id=42");
+    assert_eq!(interpolate("{{nombre}}-{{id}}", &vars), "ana-42");
+    assert_eq!(interpolate("hola {{desconocida}}", &vars), "hola {{desconocida}}");
+    assert_eq!(interpolate("sin variables", &vars), "sin variables");
+    assert_eq!(interpolate("", &vars), "");
+}
 
 fn response(body: Option<&str>, status: u16, duration_ms: u128) -> Response {
     Response {

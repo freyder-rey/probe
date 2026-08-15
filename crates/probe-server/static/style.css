@@ -102,6 +102,212 @@ body {
 
 .request-item .method { font-weight: 700; margin-right: 4px; }
 
+.tests { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 6px; }
+
+.tests-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  padding: 4px 8px;
+}
+
+.tests-head .add-test {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 11px;
+  text-transform: none;
+  padding: 2px 6px;
+}
+
+.test-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+  flex-wrap: wrap;
+}
+
+.test-item:hover { background: var(--bg-input); }
+
+.test-item .run {
+  background: none;
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 5px;
+  color: var(--green);
+  flex: 0 0 auto;
+}
+
+.test-item .run:hover { border-color: var(--green); }
+
+.test-item .name {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-dim);
+  text-align: left;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.test-item .name:hover { color: var(--text); }
+
+.test-item .status { font-size: 11px; color: var(--text-dim); }
+
+.test-item .progress {
+  flex: 1 0 100%;
+  height: 4px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.test-item .progress .bar {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.3s;
+}
+
+.test-item .report-link {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 5px;
+}
+
+.test-item .report-link:hover { color: var(--text); border-color: var(--accent); }
+
+.field { display: block; margin: 10px 0; font-size: 13px; color: var(--text-dim); }
+
+.field input, .field select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 14px;
+  outline: none;
+}
+
+.field input:focus { border-color: var(--accent); }
+
+.field fieldset { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
+
+.field legend { padding: 0 4px; }
+
+.test-fields { display: flex; gap: 10px; }
+
+.test-fields .field { flex: 1; }
+
+.test-all-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.test-all-row:hover { border-color: var(--accent); }
+
+.test-all-row .test-req-count {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+#test-request-list {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.test-req-row {
+  display: grid;
+  grid-template-columns: 20px 56px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 10px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.test-req-row:last-child { border-bottom: none; }
+
+.test-req-row:hover { background: var(--bg-input); }
+
+.test-req-row .method { font-weight: 700; }
+
+.test-req-row .req-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.report { width: 560px; }
+
+#report-content { overflow-y: auto; }
+
+.report-status {
+  display: inline-block;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.report-status.done { color: var(--green); border-color: var(--green); }
+.report-status.stopped { color: var(--yellow); border-color: var(--yellow); }
+.report-status.error { color: var(--red); border-color: var(--red); }
+
+.report-result { font-weight: 600; }
+.report-result.pass { color: var(--green); }
+.report-result.fail { color: var(--red); }
+
+.report-error { color: var(--red); }
+
+.report-detail { color: var(--text-dim); font-size: 13px; }
+
+.report-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0; }
+
+.report-table th, .report-table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.report-table th { color: var(--text-dim); font-weight: 600; }
+
+.report-errors { font-size: 13px; color: var(--red); margin: 4px 0; padding-left: 18px; }
+
 .method.get { color: var(--green); }
 .method.post { color: var(--orange); }
 .method.put { color: var(--accent); }
@@ -118,6 +324,86 @@ main {
 }
 
 #editor, #response { padding: 16px; overflow-y: auto; }
+
+#mode-switch {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+  background: var(--bg-input);
+  width: fit-content;
+}
+
+#mode-switch button {
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+#mode-switch button:hover { color: var(--text); }
+
+#mode-switch button.active {
+  background: var(--accent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.panel-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px;
+  color: var(--text);
+}
+
+.test-actions { display: flex; gap: 8px; margin-top: 16px; }
+.test-actions button { flex: 1; }
+
+#request-response, #test-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#test-panel { overflow-y: auto; }
+
+#test-panel-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.run-count { font-size: 13px; color: var(--text-dim); }
+
+.progress {
+  height: 6px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.progress .bar {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.3s;
+}
+
+#test-panel-report { overflow-y: auto; }
+#test-panel-report .report-result { font-size: 15px; }
+
+.report-status.running { color: var(--accent); border-color: var(--accent); }
+
+.test-panel-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+.test-panel-actions button { font-size: 13px; padding: 6px 12px; }
 
 #editor {
   flex: 1 1 50%;

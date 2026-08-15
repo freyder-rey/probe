@@ -26,6 +26,7 @@ pub fn collection(command: CollectionCommand) -> anyhow::Result<()> {
                 name,
                 version: "1".to_string(),
                 requests: vec![],
+                tests: vec![],
             };
             let saved = storage.save(&collection)?;
             println!("Colección vacía creada en {}", saved.display());

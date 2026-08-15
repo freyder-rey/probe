@@ -9,6 +9,9 @@ pub mod application;
 pub mod domain;
 pub mod infrastructure;
 
-pub use application::Engine;
-pub use domain::{Body, Collection, KeyValue, Request, Response, Validation, ValidationResult};
+pub use application::{interpolate, Engine, Runner};
+pub use domain::{
+    Body, Collection, CsvSource, KeyValue, LoadTest, LoadTestReport, Request, RequestSummary,
+    Response, Validation, ValidationResult,
+};
 pub use infrastructure::Storage;
