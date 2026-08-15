@@ -72,15 +72,36 @@ cargo run -p probe-server   # web en http://127.0.0.1:7878
 ## Estado actual
 
 Etapa 1 completa (requests con cualquier verbo, persistencia por usuario,
-validaciones declarativas, CLI y web). PR #1 `feature/core-cli-web` → develop.
+validaciones declarativas, CLI y web). PR #1 `feature/core-cli-web` → develop
+merged.
 
-En curso (PR #2 `refactor/arquitectura-capas-frontend` → develop): reescritura
-del núcleo por capas (domain/application/infrastructure) y split CLI/server.
+Incluido en la rama `feature/load-tests` (retoma el trabajo del ex-PR #2
+`refactor/arquitectura-capas-frontend`): reescritura del núcleo por capas
+(domain/application/infrastructure), split CLI/server y layout web con tabs y
+modal de guardado.
 
-En desarrollo (`feature/load-tests`): **tests de carga** — runner secuencial con
-delay e iteraciones, datos CSV interpolados con `{{variable}}` (interpolación ya
-implementada en `application/interpolation.rs`), reporte con avg/p95 y detener
-solo (sin pausa, v1). Superficie: core + CLI (`probe test list|run`) + web
-(panel de tests) + API `/api/tests/{collection}/{test}/start|status|stop`.
+### Dónde quedamos (última sesión)
 
-Pendientes de roadmap: export Markdown, Electron.
+- **PR #3 abierta** → https://github.com/freyder-rey/probe/pull/3
+  (`feature/load-tests` → `develop`), último commit `748a531`. Contenido:
+  - **probe-core**: runner de tests de carga (secuencial, iteraciones/delay,
+    datos CSV interpolados con `{{variable}}`, reporte con avg/p95 y
+    cancelación con `AtomicBool`). 19 tests OK.
+  - **probe-cli**: `probe test list|run` (Ctrl+C y reporte).
+  - **probe-server**: `/api/tests/{collection}/{test}/start|status|stop` +
+    `state.rs` (AppState/RunState).
+  - **web**: editor de tests en el panel principal — modo `Solicitud|Test`
+    (`setMode`), selector de colección de origen con checkboxes, guardado
+    eligiendo destino (`#save-test-modal`), ejecución con polling de 400 ms y
+    reporte en `#test-panel`. `state.collectionCache` se invalida al guardar.
+  - Docs (SPEC, CLI, AGENTS) y `.gitignore` actualizados.
+- `crates/test/` (CSVs de prueba del runner) está gitignoreado — no se sube.
+- Verificado: `cargo test --workspace` 19 OK, `clippy` sin warnings, smoke test
+  de la API (crear → start → status done → stop) OK.
+
+### Dónde vamos
+
+1. Revisar y mergear **PR #3** → `develop`; borrar `feature/load-tests`.
+2. Roadmap pendiente: **export Markdown** y **Electron** (envolver la UI como
+   cáscara de escritorio, decisión D3).
+3. V2 posible de load tests: pausa/reanudar, más métricas en el reporte.
