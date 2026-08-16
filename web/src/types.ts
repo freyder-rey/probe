@@ -95,6 +95,10 @@ export interface RunStatus {
   total: number
   report: LoadTestReport | null
   error: string | null
+  /** Solicitud que se está ejecutando ahora (progreso real-time). */
+  currentRequest: string | null
+  /** Acumulado por solicitud en vivo (progreso real-time). */
+  perRequest: RequestSummary[]
 }
 
 export function newRequest(): Request {

@@ -10,7 +10,9 @@ use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use tokio::time::{sleep, Duration};
 
-use crate::domain::{Body, CsvSource, KeyValue, LoadTest, LoadTestReport, Request, RequestSummary};
+use crate::domain::{
+    Body, CsvSource, KeyValue, LoadTest, LoadTestReport, Request, RequestSummary, RunProgress,
+};
 
 use super::{
     interpolation::interpolate, ports::CsvRowLoader, ports::HttpExecutor, ports::LoadTestRunner,
@@ -42,7 +44,7 @@ impl Runner {
         on_progress: F,
     ) -> Result<LoadTestReport>
     where
-        F: Fn(u64, u64) + Send + Sync + 'static,
+        F: Fn(RunProgress) + Send + Sync + 'static,
     {
         let flow = self.select_flow(test, requests)?;
 
@@ -66,6 +68,12 @@ impl Runner {
         let mut errors: Vec<String> = Vec::new();
         let mut per_request: HashMap<String, RequestSummary> = HashMap::new();
 
+        let snapshot = |map: &HashMap<String, RequestSummary>| -> Vec<RequestSummary> {
+            let mut list: Vec<RequestSummary> = map.values().cloned().collect();
+            list.sort_by(|a, b| a.name.cmp(&b.name));
+            list
+        };
+
         let start = std::time::Instant::now();
 
         'outer: for i in 0..test.iterations {
@@ -82,6 +90,13 @@ impl Runner {
                 if is_cancelled(cancel) {
                     break 'outer;
                 }
+
+                on_progress(RunProgress {
+                    done: completed,
+                    total,
+                    current_request: Some(req.name.clone()),
+                    per_request: snapshot(&per_request),
+                });
 
                 let sample = match self.engine.execute(&interpolate_request(req, &vars)).await {
                     Ok(resp) => {
@@ -100,7 +115,6 @@ impl Runner {
                 };
 
                 completed += 1;
-                on_progress(completed, total);
                 samples.push(sample.duration_ms);
 
                 if sample.passed {
@@ -126,6 +140,13 @@ impl Runner {
                 } else {
                     summary.failed += 1;
                 }
+
+                on_progress(RunProgress {
+                    done: completed,
+                    total,
+                    current_request: None,
+                    per_request: snapshot(&per_request),
+                });
 
                 if test.delay_ms > 0 && pos + 1 < flow.len() {
                     sleep(Duration::from_millis(test.delay_ms)).await;
@@ -194,7 +215,7 @@ impl LoadTestRunner for Runner {
         test: &LoadTest,
         requests: &[Request],
         cancel: Option<&AtomicBool>,
-        on_progress: Box<dyn Fn(u64, u64) + Send + Sync>,
+        on_progress: Box<dyn Fn(RunProgress) + Send + Sync>,
     ) -> Result<LoadTestReport> {
         self.run(test, requests, cancel, on_progress).await
     }
@@ -318,7 +339,7 @@ mod tests {
         };
 
         let runner = runner();
-        let report = runner.run(&test, &requests, None, |_, _| {}).await.unwrap();
+        let report = runner.run(&test, &requests, None, |_| {}).await.unwrap();
 
         assert_eq!(report.total_requests, 6);
         assert_eq!(report.success, 3);
@@ -354,7 +375,7 @@ mod tests {
         };
 
         let runner = runner();
-        let report = runner.run(&test, &requests, None, |_, _| {}).await.unwrap();
+        let report = runner.run(&test, &requests, None, |_| {}).await.unwrap();
 
         // Filas: (1,ana),(2,leo) -> cicladas 4 veces: 1,2,1,2.
         // El body del echo es el id: "1" contiene "1" (pasa), "2" no (falla).
@@ -379,7 +400,7 @@ mod tests {
         cancel.store(true, std::sync::atomic::Ordering::Relaxed);
         let runner = runner();
         let report = runner
-            .run(&test, &requests, Some(&cancel), |_, _| {})
+            .run(&test, &requests, Some(&cancel), |_| {})
             .await
             .unwrap();
 

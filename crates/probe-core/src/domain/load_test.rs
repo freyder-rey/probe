@@ -50,6 +50,21 @@ pub struct RequestSummary {
     pub failed: u64,
 }
 
+/// Progreso en vivo de una ejecución: qué se ejecutó, qué se está ejecutando
+/// ahora y el acumulado por solicitud. Lo emite el runner vía `on_progress` y
+/// lo consume el servidor para el SSE (progreso real-time en la web).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunProgress {
+    /// Solicitudes completadas (siguiente índice a ejecutar).
+    pub done: u64,
+    pub total: u64,
+    /// Solicitud que se está ejecutando en este momento (si hay una).
+    pub current_request: Option<String>,
+    /// Acumulado por solicitud hasta el momento.
+    pub per_request: Vec<RequestSummary>,
+}
+
 fn default_iterations() -> u64 {
     1
 }

@@ -39,3 +39,19 @@ pub enum Validation {
         max_ms: u64,
     },
 }
+
+impl Validation {
+    /// Nombre declarativo de la validación (para reportes y export).
+    pub fn name(&self) -> &str {
+        match self {
+            Validation::StatusEquals { name, .. }
+            | Validation::HeaderEquals { name, .. }
+            | Validation::HeaderContains { name, .. }
+            | Validation::BodyContains { name, .. }
+            | Validation::BodyEquals { name, .. }
+            | Validation::JsonEquals { name, .. }
+            | Validation::JsonExists { name, .. }
+            | Validation::DurationLt { name, .. } => name,
+        }
+    }
+}

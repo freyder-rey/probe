@@ -129,9 +129,12 @@ Estos puntos se evalúan en etapas posteriores, a definir conforme avance el pro
   (none/raw/urlencoded), timeout, seguir redirects y validaciones.
 - Visor de respuesta: status, tiempo, resultado de validaciones (✓/✗), headers
   y cuerpo (JSON con formato y resaltado, editor CodeMirror).
-- Listado de colecciones locales: cargar, crear, guardar y eliminar.
+- Listado de colecciones locales: cargar, crear, guardar, eliminar y **exportar
+  a Markdown** (botón `md` por colección, descarga de `<colección>.md` vía
+  `GET /api/collections/{name}/markdown`, plantilla D1).
 - Progreso real-time de los tests por **SSE** (`/api/tests/{c}/{t}/events`):
-  la UI muestra `done/total` y el reporte sin polling.
+  la UI muestra `done/total`, la **solicitud que se está ejecutando** y una
+  tabla **per-request en vivo** sin polling.
 - Picker de **CSV** para los tests: el navegador sube el archivo a
   `/api/csv`, el server lo guarda en `~/.probe/collections/csv/` y devuelve la
   ruta que el runner lee (decisión D7).
@@ -157,7 +160,10 @@ Estos puntos se evalúan en etapas posteriores, a definir conforme avance el pro
 - **V1**: ejecución secuencial (una petición a la vez, con delays reales),
   sin pausa/reanudar; solo **detener**. El reporte se genera al final (o
   parcial si se detuvo). El progreso se publica en vivo por **SSE**
-  (`/api/tests/{c}/{t}/events`) y la web lo muestra sin polling (decisión D8).
+  (`/api/tests/{c}/{t}/events`) con **granularidad por solicitud**: cada evento
+  trae `done`/`total`, la `currentRequest` que se está ejecutando y el
+  `perRequest` acumulado (decisión D8); la web lo muestra sin polling en una
+  tabla en vivo.
 - **Reporte**: duración, total de solicitudes, OK/fallidas, tiempo promedio y
   p95, desglose por solicitud y primeros errores encontrados.
 - Superficies: CLI (`probe test list|run`), Web (panel de tests) y API
@@ -319,7 +325,13 @@ probe/
   `PROBE_COLLECTIONS_DIR`) y devuelve la ruta que el runner lee.
 - **D8 — Progreso real-time**: el server publica el estado de cada ejecución por
   un canal `watch` (`RunState.progress`); la web lo consume por **SSE**
-  (`/api/tests/{c}/{t}/events`) en vez de polling.
+  (`/api/tests/{c}/{t}/events`) en vez de polling. Cada evento lleva
+  `currentRequest` y `perRequest` (acumulado por solicitud en vivo), no solo
+  `done`/`total`, para que la UI muestre qué se está ejecutando.
+- **D9 — Export Markdown**: la generación de Markdown vive en `probe-core`
+  (`collection_to_markdown`, plantilla D1); el server la expone por
+  `GET /api/collections/{name}/markdown` y la web descarga el archivo. No hay
+  parseo de Markdown: es solo export/visualización, el JSON es la fuente de verdad.
 
 ## 10. Criterios de aceptación (etapa 1)
 
@@ -336,5 +348,8 @@ probe/
 - [ ] Un test puede leer datos de un CSV e interpolar `{{variables}}`.
 - [ ] El test se puede detener (CLI con Ctrl+C, web con el botón detener).
 - [ ] La web muestra el progreso del test en vivo por SSE sin polling.
+- [ ] El progreso en vivo muestra la solicitud que se está ejecutando y el
+      acumulado por solicitud (tabla per-request).
+- [ ] Una colección se puede exportar a Markdown desde la web (descarga `.md`).
 - [ ] La web permite subir un CSV desde el navegador para un test.
 - [ ] Los tests del frontend (Vitest) y del backend (cargo) pasan con `make test`.

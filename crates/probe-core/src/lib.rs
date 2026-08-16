@@ -10,11 +10,12 @@ pub mod domain;
 pub mod infrastructure;
 
 pub use application::{
-    interpolate, CollectionRepository, CsvRowLoader, Engine, HttpExecutor, LoadTestRunner, Runner,
+    collection_to_markdown, interpolate, CollectionRepository, CsvRowLoader, Engine, HttpExecutor,
+    LoadTestRunner, Runner,
 };
 pub use domain::{
     Body, Collection, CollectionSummary, CsvSource, KeyValue, LoadTest, LoadTestReport, Request,
-    RequestSummary, Response, Validation, ValidationResult,
+    RequestSummary, Response, RunProgress, Validation, ValidationResult,
 };
 pub use infrastructure::{
     csv_dir, load_csv_rows, CsvLoader, FileCollectionRepository, InMemoryCollectionRepository,
