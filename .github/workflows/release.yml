@@ -16,7 +16,6 @@ jobs:
     outputs:
       version: ${{ steps.next.outputs.version }}
       tag: ${{ steps.next.outputs.tag }}
-      changelog: ${{ steps.changelog.outputs.changelog }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,7 +54,6 @@ jobs:
           git push origin "v${{ steps.next.outputs.version }}"
 
       - name: Generar changelog (PRs mergeados desde el tag anterior)
-        id: changelog
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -65,7 +63,7 @@ jobs:
               echo "### Release inicial"
               echo ""
               echo "- Release v${{ steps.next.outputs.version }} con las primeras features de probe."
-            } > /tmp/changelog.txt
+            } > changelog.txt
           else
             prs=$(git log "$prev..HEAD" --merges --format=%s \
               | grep -oE 'Merge pull request #[0-9]+' \
@@ -77,11 +75,14 @@ jobs:
                 title=$(gh pr view "$num" --json title --jq '.title' 2>/dev/null || echo "sin título")
                 echo "- #$num — $title"
               done
-            } > /tmp/changelog.txt
+            } > changelog.txt
           fi
-          echo "changelog<<'EOF'" >> "$GITHUB_OUTPUT"
-          cat /tmp/changelog.txt >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+      - name: Subir changelog como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: changelog.txt
+          if-no-files-found: error
 
   build:
     needs: version
@@ -136,13 +137,18 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+      - name: Descargar changelog
+        uses: actions/download-artifact@v4
+        with:
+          name: changelog
+          path: changelog
       - name: Listar assets
-        run: ls -la artifacts
+        run: ls -la artifacts && echo "--- changelog:" && ls -la changelog
       - name: Publicar release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.version.outputs.tag }}
           name: ${{ needs.version.outputs.tag }}
-          body: ${{ needs.version.outputs.changelog }}
+          body_path: changelog/changelog.txt
           files: artifacts/*
           fail_on_unmatched_files: false
