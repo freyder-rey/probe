@@ -15,6 +15,7 @@ vi.mock('./api', () => ({
     testStatus: vi.fn(),
     stopTest: vi.fn(),
     uploadCsv: vi.fn(),
+    collectionMarkdown: vi.fn(),
   },
 }))
 
@@ -70,5 +71,17 @@ describe('App', () => {
     await user.type(screen.getByLabelText(/URL/), 'https://httpbin.org/get')
     await user.click(screen.getByRole('button', { name: /enviar/i }))
     await waitFor(() => expect(screen.getByText(/conexión rechazada/)).toBeInTheDocument())
+  })
+
+  it('exporta la colección a Markdown', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.collectionMarkdown).mockResolvedValue('# demo\n')
+    const clickSpy = vi.spyOn(document, 'createElement')
+    render(<App />)
+    await waitFor(() => expect(screen.getByText('demo')).toBeInTheDocument())
+    await user.click(screen.getByTitle('Exportar a Markdown'))
+    await waitFor(() => expect(api.collectionMarkdown).toHaveBeenCalledWith('demo'))
+    expect(clickSpy).toHaveBeenCalled()
+    expect(clickSpy.mock.results.some((r) => r.value?.download === 'demo.md')).toBe(true)
   })
 })

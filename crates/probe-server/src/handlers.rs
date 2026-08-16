@@ -6,7 +6,10 @@ use std::sync::{
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    response::sse::{Event, Sse},
+    response::{
+        sse::{Event, Sse},
+        IntoResponse,
+    },
     Json,
 };
 use futures_util::stream::Stream;
@@ -114,10 +117,9 @@ async fn run_test(
             &test,
             &collection.requests,
             Some(cancel),
-            Box::new(move |done, total| {
+            Box::new(move |progress| {
                 runs.update(&key, |run| {
-                    run.done = done;
-                    run.total = total;
+                    run.apply_progress(progress);
                     run.notify();
                 });
             }),
@@ -208,6 +210,8 @@ pub async fn test_stop(
         total: 0,
         report: None,
         error: None,
+        current_request: None,
+        per_request: Vec::new(),
     }))
 }
 
@@ -274,4 +278,30 @@ fn sanitize_csv_name(name: &str) -> String {
             _ => c,
         })
         .collect()
+}
+
+/// Devuelve la colección serializada a Markdown legible (formato D1).
+pub async fn collection_markdown(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let collection = state.repo.load(&name).map_err(|_| {
+        (
+            StatusCode::NOT_FOUND,
+            format!("colección \"{name}\" no encontrada"),
+        )
+    })?;
+    let md = probe_core::collection_to_markdown(&collection);
+    Ok(axum::http::Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            axum::http::header::CONTENT_TYPE,
+            "text/markdown; charset=utf-8",
+        )
+        .header(
+            axum::http::header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}.md\"", collection.name),
+        )
+        .body(md)
+        .unwrap())
 }

@@ -3,7 +3,9 @@ use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
-use probe_core::{CollectionRepository, HttpExecutor, LoadTestReport, LoadTestRunner};
+use probe_core::{
+    CollectionRepository, HttpExecutor, LoadTestReport, LoadTestRunner, RequestSummary, RunProgress,
+};
 use tokio::sync::watch;
 
 #[derive(Clone)]
@@ -58,6 +60,10 @@ pub struct RunState {
     pub cancel: Arc<AtomicBool>,
     pub report: Option<LoadTestReport>,
     pub error: Option<String>,
+    /// Solicitud que se está ejecutando ahora (progreso real-time).
+    pub current_request: Option<String>,
+    /// Acumulado por solicitud en vivo (progreso real-time).
+    pub per_request: Vec<RequestSummary>,
     /// Notifica cambios de progreso a los suscriptores SSE (último valor).
     pub progress: watch::Sender<RunStatusResponse>,
 }
@@ -70,6 +76,8 @@ impl RunState {
             total: 0,
             report: None,
             error: None,
+            current_request: None,
+            per_request: Vec::new(),
         });
         RunState {
             status: "running".to_string(),
@@ -78,8 +86,18 @@ impl RunState {
             cancel,
             report: None,
             error: None,
+            current_request: None,
+            per_request: Vec::new(),
             progress,
         }
+    }
+
+    /// Actualiza el estado de progreso desde un evento del runner.
+    pub fn apply_progress(&mut self, progress: RunProgress) {
+        self.done = progress.done;
+        self.total = progress.total;
+        self.current_request = progress.current_request;
+        self.per_request = progress.per_request;
     }
 
     /// Emite el estado actual por el canal de progreso (SSE).
@@ -96,6 +114,8 @@ pub struct RunStatusResponse {
     pub total: u64,
     pub report: Option<LoadTestReport>,
     pub error: Option<String>,
+    pub current_request: Option<String>,
+    pub per_request: Vec<RequestSummary>,
 }
 
 impl RunStatusResponse {
@@ -106,6 +126,8 @@ impl RunStatusResponse {
             total: run.total,
             report: run.report.clone(),
             error: run.error.clone(),
+            current_request: run.current_request.clone(),
+            per_request: run.per_request.clone(),
         }
     }
 }

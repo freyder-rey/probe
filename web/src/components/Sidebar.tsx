@@ -83,6 +83,22 @@ export function Sidebar({
     await onRefresh()
   }
 
+  async function handleExportMarkdown(name: string) {
+    try {
+      const md = await api.collectionMarkdown(name)
+      const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${name}.md`
+      a.click()
+      URL.revokeObjectURL(url)
+      onToast(`«${name}.md» descargado.`)
+    } catch (err) {
+      onToast('Error al exportar: ' + (err as Error).message, false)
+    }
+  }
+
   async function handleNewCollection() {
     const name = prompt('Nombre de la colección:')
     if (!name || !name.trim()) return
@@ -119,6 +135,13 @@ export function Sidebar({
               <div className="collection-head" onClick={() => void toggle(c)}>
                 <span className="name">{c.name}</span>
                 <span className="count">{c.requests.length} req</span>
+                <button
+                  className="md"
+                  title="Exportar a Markdown"
+                  onClick={(e) => { e.stopPropagation(); void handleExportMarkdown(c.name) }}
+                >
+                  md
+                </button>
                 <button className="del" title="Eliminar" onClick={(e) => { e.stopPropagation(); void handleDelete(c.name) }}>×</button>
               </div>
               {isOpen && (

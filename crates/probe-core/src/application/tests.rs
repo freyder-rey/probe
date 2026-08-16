@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use super::{
-    interpolate,
+    collection_to_markdown, interpolate,
     validation::{resolve_path, run},
 };
-use crate::domain::{Response, Validation};
+use crate::domain::{Body, Collection, KeyValue, Request, Response, Validation};
 
 #[test]
 fn interpolate_replaces_known_vars_and_keeps_unknown() {
@@ -139,4 +139,64 @@ fn header_and_body() {
     assert!(results[1].passed);
     assert!(results[2].passed);
     assert!(!results[3].passed);
+}
+
+fn sample_collection() -> Collection {
+    Collection {
+        name: "demo".to_string(),
+        version: "1".to_string(),
+        requests: vec![Request {
+            id: None,
+            name: "Obtener usuarios".to_string(),
+            method: "GET".to_string(),
+            url: "https://api.example.com/users".to_string(),
+            query: vec![KeyValue::new("limit", "10")],
+            headers: vec![KeyValue::new("Authorization", "Bearer xyz")],
+            body: Body::Raw {
+                content: "{\n  \"active\": true\n}".to_string(),
+            },
+            timeout_secs: 30,
+            follow_redirects: true,
+            validations: vec![Validation::StatusEquals {
+                name: "status".into(),
+                expected: 200,
+            }],
+        }],
+        tests: vec![],
+    }
+}
+
+#[test]
+fn markdown_follows_d1_template() {
+    let md = collection_to_markdown(&sample_collection());
+    assert!(md.starts_with("# demo\n"));
+    assert!(md.contains("## GET /users — Obtener usuarios"));
+    assert!(md.contains("- **Método:** GET"));
+    assert!(md.contains("**Headers**"));
+    assert!(md.contains("Authorization: Bearer xyz"));
+    assert!(md.contains("**Body**"));
+    assert!(md.contains("\"active\": true"));
+    assert!(md.contains("**Validaciones**"));
+    assert!(md.contains("- status"));
+    assert!(md.contains("_Generado desde la colección `demo.json`_"));
+}
+
+#[test]
+fn markdown_empty_collection() {
+    let md = collection_to_markdown(&Collection {
+        name: "vacía".to_string(),
+        version: "1".to_string(),
+        requests: vec![],
+        tests: vec![],
+    });
+    assert!(md.contains("_(sin solicitudes)_"));
+}
+
+#[test]
+fn validation_name_is_exposed() {
+    let v = Validation::DurationLt {
+        name: "rápido".into(),
+        max_ms: 10,
+    };
+    assert_eq!(v.name(), "rápido");
 }

@@ -8,7 +8,9 @@ use std::{collections::HashMap, path::Path, sync::atomic::AtomicBool};
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::domain::{Collection, CollectionSummary, LoadTest, LoadTestReport, Request, Response};
+use crate::domain::{
+    Collection, CollectionSummary, LoadTest, LoadTestReport, Request, Response, RunProgress,
+};
 
 /// Persistencia de colecciones de solicitudes.
 pub trait CollectionRepository: Send + Sync {
@@ -38,6 +40,6 @@ pub trait LoadTestRunner: Send + Sync {
         test: &LoadTest,
         requests: &[Request],
         cancel: Option<&AtomicBool>,
-        on_progress: Box<dyn Fn(u64, u64) + Send + Sync>,
+        on_progress: Box<dyn Fn(RunProgress) + Send + Sync>,
     ) -> Result<LoadTestReport>;
 }

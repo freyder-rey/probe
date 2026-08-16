@@ -198,6 +198,17 @@ modal de guardado.
    (draft→LoadTest), `App` (api mockeado), `TestEditor`, `TestPanel` y
    `ResponsePanel`. `make test` ahora corre Rust + vitest + lint. Docs
    actualizadas: SPEC (RF-8/RF-9, decisiones D7/D8, criterios de aceptación),
-   docs/CLI.md (endpoints `events` y `csv`), web/README.md. Export Markdown y
-   Electron quedan en el roadmap.
-7. V2 posible de load tests: pausa/reanudar, más métricas en el reporte.
+   docs/CLI.md (endpoints `events` y `csv`), web/README.md. Electron queda en el
+   roadmap.
+7. **J — export Markdown + progreso real-time granular (en curso)**: `cargo fmt`
+   repo-wide aplicado (PR #10, pendiente conocido). Export Markdown: generador
+   `collection_to_markdown` en probe-core (plantilla D1, `application/markdown.rs`)
+   + endpoint `GET /api/collections/{name}/markdown` + botón `md` en la sidebar
+   (descarga `<colección>.md`). Progreso real-time granular: el runner emite
+   `RunProgress` (domain) con `done/total`, `current_request` y `per_request`
+   acumulado por solicitud; `on_progress` cambia de `Fn(u64,u64)` a `Fn(RunProgress)`
+   (puerto `LoadTestRunner`). `RunStatusResponse` gana `currentRequest`/`perRequest`;
+   la web muestra "Ejecutando: X" y una tabla per-request en vivo por SSE. 23
+   tests Rust (2 nuevos de markdown + 1 de Validation::name), 25 tests web (2
+   nuevos: tabla en vivo y export).
+8. V2 posible de load tests: pausa/reanudar, más métricas en el reporte.

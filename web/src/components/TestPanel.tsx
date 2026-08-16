@@ -62,16 +62,35 @@ export function TestPanel({ title, status, onStop, onRunAgain }: Props) {
           <>
             <span className="report-status running">en ejecución</span>
             <span className="run-count">{status.done}/{status.total || '…'}</span>
+            {status.currentRequest && (
+              <span className="run-current" id="test-panel-current">Ejecutando: {status.currentRequest}</span>
+            )}
           </>
         )}
       </div>
       {running && (
-        <div className="progress" id="test-panel-progress">
-          <div
-            className="bar"
-            style={{ width: `${status.total ? Math.round((status.done / status.total) * 100) : 0}%` }}
-          />
-        </div>
+        <>
+          <div className="progress" id="test-panel-progress">
+            <div
+              className="bar"
+              style={{ width: `${status.total ? Math.round((status.done / status.total) * 100) : 0}%` }}
+            />
+          </div>
+          {status.perRequest.length > 0 && (
+            <table className="report-table live" data-testid="test-panel-live-table" id="test-panel-live-table">
+              <thead>
+                <tr><th>Solicitud</th><th>Total</th><th>OK</th><th>Fallidas</th></tr>
+              </thead>
+              <tbody>
+                {status.perRequest.map((s) => (
+                  <tr key={s.name} className={status.currentRequest === s.name ? 'running-row' : ''}>
+                    <td>{s.name}</td><td>{s.total}</td><td>{s.success}</td><td>{s.failed}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
       )}
       {!running && status && (
         <div id="test-panel-report">

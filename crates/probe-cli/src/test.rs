@@ -4,7 +4,7 @@ use std::sync::{
     Arc,
 };
 
-use probe_core::{Collection, CollectionRepository, LoadTestReport, LoadTestRunner};
+use probe_core::{Collection, CollectionRepository, LoadTestReport, LoadTestRunner, RunProgress};
 
 use crate::args::{TestArgs, TestCommand};
 
@@ -105,9 +105,21 @@ async fn run(
             &test,
             &collection.requests,
             Some(&cancel),
-            Box::new(|done, total| {
-                if total == 0 || done == total || done % 25 == 0 {
-                    println!("  {done} de {total} solicitudes");
+            Box::new(|progress: RunProgress| {
+                if progress.total == 0
+                    || progress.done == progress.total
+                    || progress.done.is_multiple_of(25)
+                {
+                    println!(
+                        "  {}/{} solicitudes{}",
+                        progress.done,
+                        progress.total,
+                        progress
+                            .current_request
+                            .as_deref()
+                            .map(|r| format!(" — {r}"))
+                            .unwrap_or_default(),
+                    );
                 }
             }),
         )

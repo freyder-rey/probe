@@ -92,6 +92,13 @@ body {
 }
 .collection-head .del:hover { color: var(--red); background: var(--bg-input); }
 
+.collection-head .md {
+  background: none; border: none; color: var(--text-dim); cursor: pointer;
+  padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: 700;
+  text-transform: uppercase;
+}
+.collection-head .md:hover { color: var(--accent); background: var(--bg-input); }
+
 .request-item {
   padding: 5px 8px 5px 26px;
   font-size: 13px;
@@ -397,9 +404,16 @@ main {
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
+  flex-wrap: wrap;
 }
 
 .run-count { font-size: 13px; color: var(--text-dim); }
+
+.run-current { font-size: 13px; color: var(--accent); }
+
+.report-table.live { font-size: 12px; }
+.report-table.live .running-row td { background: var(--bg-input); color: var(--text); }
+.report-table.live .running-row td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 
 .progress {
   height: 6px;

@@ -22,7 +22,7 @@ runtime, con fallback al frontend vanilla de `static/` si el build no existe.
   (serde `camelCase`, enums con `tag`: body `none|raw|urlencoded`, validaciones
   por `kind`) + helpers `newRequest`, `newTestDraft`, `draftToLoadTest`.
 - `src/api.ts` — cliente fetch tipado para la API de `probe-server`
-  (colecciones, execute, tests y subida de CSV).
+  (colecciones, execute, tests, export Markdown y subida de CSV).
 - `src/App.tsx` — layout general + estado de la sesión + suscripción SSE al
   progreso de los tests.
 - `src/components/` — `Sidebar`, `RequestEditor`, `ResponsePanel`,
@@ -38,6 +38,13 @@ runtime, con fallback al frontend vanilla de `static/` si el build no existe.
 Cubren la lógica pura de `types.ts` y los componentes `App`, `TestEditor`,
 `TestPanel` y `ResponsePanel`. CodeMirror se mockea en `setup.tsx` porque no
 funciona en jsdom.
+
+La sidebar permite **exportar cada colección a Markdown** (botón `md`): descarga
+`<colección>.md` desde `GET /api/collections/{name}/markdown`.
+
+Durante un test en ejecución, el panel de respuesta muestra en vivo —vía SSE— la
+solicitud actual (`currentRequest`) y una tabla per-request (`perRequest`) que
+se actualiza sin polling.
 
 El dev flow: `cargo run -p probe-server` en una terminal y `npm run dev` en
 otra; Vite proxya `/api` al server en `:7878`.

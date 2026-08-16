@@ -43,6 +43,12 @@ export const api = {
     if (!res.ok) throw new Error(await res.text())
   },
 
+  async collectionMarkdown(name: string): Promise<string> {
+    const res = await fetch(`/api/collections/${encodeURIComponent(name)}/markdown`)
+    if (!res.ok) throw new Error(await res.text())
+    return res.text()
+  },
+
   async startTest(collection: string, test: string): Promise<RunStatus> {
     const res = await fetch(
       `/api/tests/${encodeURIComponent(collection)}/${encodeURIComponent(test)}/start`,

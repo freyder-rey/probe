@@ -30,16 +30,46 @@ function renderPanel(status: RunStatus | null) {
 }
 
 describe('TestPanel', () => {
-  it('muestra el progreso mientras corre', () => {
-    renderPanel({ status: 'running', done: 2, total: 6, report: null, error: null })
+  it('muestra el progreso y la solicitud actual mientras corre', () => {
+    renderPanel({
+      status: 'running',
+      done: 2,
+      total: 6,
+      report: null,
+      error: null,
+      currentRequest: 'bad',
+      perRequest: [
+        { name: 'ok', total: 1, success: 1, failed: 0 },
+        { name: 'bad', total: 1, success: 0, failed: 1 },
+      ],
+    })
     expect(screen.getByText(/en ejecución/)).toBeInTheDocument()
     expect(screen.getByText('2/6')).toBeInTheDocument()
+    expect(screen.getByText('Ejecutando: bad')).toBeInTheDocument()
     expect(screen.getByText('■ Detener')).toBeInTheDocument()
     expect(screen.queryByText(/Ejecutar de nuevo/)).not.toBeInTheDocument()
   })
 
+  it('muestra la tabla per-request en vivo mientras corre', () => {
+    renderPanel({
+      status: 'running',
+      done: 2,
+      total: 6,
+      report: null,
+      error: null,
+      currentRequest: 'bad',
+      perRequest: [
+        { name: 'ok', total: 1, success: 1, failed: 0 },
+        { name: 'bad', total: 1, success: 0, failed: 1 },
+      ],
+    })
+    expect(screen.getByTestId('test-panel-live-table')).toBeInTheDocument()
+    expect(screen.getByText('bad')).toBeInTheDocument()
+    expect(screen.getAllByText('1').length).toBeGreaterThan(0)
+  })
+
   it('muestra el reporte final con resultados', () => {
-    renderPanel({ status: 'done', done: 6, total: 6, report, error: null })
+    renderPanel({ status: 'done', done: 6, total: 6, report, error: null, currentRequest: null, perRequest: [] })
     expect(screen.getByText(/FALLÓ/)).toBeInTheDocument()
     expect(screen.getByText(/promedio 200 ms · p95 350 ms/)).toBeInTheDocument()
     expect(screen.getByText('bad')).toBeInTheDocument()
@@ -48,13 +78,13 @@ describe('TestPanel', () => {
   })
 
   it('muestra el error si la ejecución falló', () => {
-    renderPanel({ status: 'error', done: 0, total: 0, report: null, error: 'boom' })
+    renderPanel({ status: 'error', done: 0, total: 0, report: null, error: 'boom', currentRequest: null, perRequest: [] })
     expect(screen.getByText('boom')).toBeInTheDocument()
     expect(screen.queryByText(/FALLÓ/)).not.toBeInTheDocument()
   })
 
   it('muestra el estado parado', () => {
-    renderPanel({ status: 'stopped', done: 3, total: 6, report: null, error: null })
+    renderPanel({ status: 'stopped', done: 3, total: 6, report: null, error: null, currentRequest: null, perRequest: [] })
     expect(screen.getByText('stopped')).toBeInTheDocument()
   })
 
