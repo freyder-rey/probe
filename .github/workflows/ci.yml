@@ -1,0 +1,63 @@
+name: CI
+
+# Verificación en cada PR hacia develop: git flow, compilación, clippy, formato,
+# tests unitarios y gate de cobertura (probe-core >= 90%).
+on:
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  git-flow:
+    name: Git flow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verificar prefijo de rama
+        run: |
+          branch="${{ github.head_ref }}"
+          case "$branch" in
+            feature/*|fix/*|docs/*|hotfix/*)
+              echo "Rama '$branch' sigue git flow. OK"
+              ;;
+            *)
+              echo "::error::La rama '$branch' no usa un prefijo de git flow (feature/|fix/|docs/|hotfix/)."
+              exit 1
+              ;;
+          esac
+
+  build:
+    name: Compilar + clippy + fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar workspace
+        run: cargo build --workspace
+      - name: Clippy sin warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Formato
+        run: cargo fmt --all -- --check
+
+  test:
+    name: Tests unitarios
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ejecutar tests
+        run: cargo test --workspace
+
+  coverage:
+    name: Cobertura (probe-core >= 90%)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      - name: Instalar llvm-tools-preview
+        run: rustup component add llvm-tools-preview
+      - name: Gate de cobertura
+        run: cargo llvm-cov -p probe-core --fail-under-lines 90
