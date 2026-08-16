@@ -32,7 +32,7 @@ jobs:
     name: Compilar + clippy + fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Compilar workspace
         run: cargo build --workspace
       - name: Clippy sin warnings
@@ -44,7 +44,7 @@ jobs:
     name: Tests unitarios
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Ejecutar tests
         run: cargo test --workspace
 
@@ -52,7 +52,7 @@ jobs:
     name: Cobertura (probe-core >= 90%)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Instalar cargo-llvm-cov
         uses: taiki-e/install-action@v2
         with:
