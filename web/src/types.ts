@@ -89,6 +89,18 @@ export interface LoadTestReport {
   errors: string[]
 }
 
+/** Resultado de una ejecución individual (solicitud × iteración/CSV row). */
+export interface RunEvent {
+  request: string
+  /** Iteración 1-based en la que se ejecutó la solicitud. */
+  iteration: number
+  /** Status HTTP real (null si hubo error de red/parseo). */
+  status: number | null
+  ok: boolean
+  durationMs: number
+  error: string | null
+}
+
 export interface RunStatus {
   status: string
   done: number
@@ -99,6 +111,8 @@ export interface RunStatus {
   currentRequest: string | null
   /** Acumulado por solicitud en vivo (progreso real-time). */
   perRequest: RequestSummary[]
+  /** Última ejecución completada (log en vivo). */
+  lastEvent: RunEvent | null
 }
 
 export function newRequest(): Request {

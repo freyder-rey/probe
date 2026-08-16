@@ -15,7 +15,7 @@ pub use application::{
 };
 pub use domain::{
     Body, Collection, CollectionSummary, CsvSource, KeyValue, LoadTest, LoadTestReport, Request,
-    RequestSummary, Response, RunProgress, Validation, ValidationResult,
+    RequestSummary, Response, RunEvent, RunProgress, Validation, ValidationResult,
 };
 pub use infrastructure::{
     csv_dir, load_csv_rows, CsvLoader, FileCollectionRepository, InMemoryCollectionRepository,

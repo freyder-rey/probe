@@ -43,8 +43,10 @@ La sidebar permite **exportar cada colección a Markdown** (botón `md`): descar
 `<colección>.md` desde `GET /api/collections/{name}/markdown`.
 
 Durante un test en ejecución, el panel de respuesta muestra en vivo —vía SSE— la
-solicitud actual (`currentRequest`) y una tabla per-request (`perRequest`) que
-se actualiza sin polling.
+solicitud actual (`currentRequest`), una tabla per-request (`perRequest`) que se
+actualiza sin polling y un **log secuencial** con el resultado de cada ejecución
+(`lastEvent`: request, iteración, status HTTP real o error, duración). El log
+queda visible también en el reporte final.
 
 El dev flow: `cargo run -p probe-server` en una terminal y `npm run dev` en
 otra; Vite proxya `/api` al server en `:7878`.

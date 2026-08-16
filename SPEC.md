@@ -161,9 +161,12 @@ Estos puntos se evalúan en etapas posteriores, a definir conforme avance el pro
   sin pausa/reanudar; solo **detener**. El reporte se genera al final (o
   parcial si se detuvo). El progreso se publica en vivo por **SSE**
   (`/api/tests/{c}/{t}/events`) con **granularidad por solicitud**: cada evento
-  trae `done`/`total`, la `currentRequest` que se está ejecutando y el
-  `perRequest` acumulado (decisión D8); la web lo muestra sin polling en una
-  tabla en vivo.
+  trae `done`/`total`, la `currentRequest` que se está ejecutando, el
+  `perRequest` acumulado y el **`lastEvent`** —resultado de la última ejecución
+  completada (request, iteración, status HTTP real, ok/fail, duración, error)—
+  (decisión D8); la web lo muestra sin polling en una tabla en vivo y un **log
+  secuencial** "Enviando… → Status 200/400/500…" por ejecución, que también
+  queda en el reporte final.
 - **Reporte**: duración, total de solicitudes, OK/fallidas, tiempo promedio y
   p95, desglose por solicitud y primeros errores encontrados.
 - Superficies: CLI (`probe test list|run`), Web (panel de tests) y API
@@ -326,8 +329,10 @@ probe/
 - **D8 — Progreso real-time**: el server publica el estado de cada ejecución por
   un canal `watch` (`RunState.progress`); la web lo consume por **SSE**
   (`/api/tests/{c}/{t}/events`) en vez de polling. Cada evento lleva
-  `currentRequest` y `perRequest` (acumulado por solicitud en vivo), no solo
-  `done`/`total`, para que la UI muestre qué se está ejecutando.
+  `currentRequest`, `perRequest` (acumulado por solicitud en vivo) y
+  `lastEvent` (resultado de la última ejecución completada: request, iteración,
+  status HTTP, ok/fail, duración y error), no solo `done`/`total`, para que la
+  UI muestre qué se está ejecutando y un log secuencial de resultados.
 - **D9 — Export Markdown**: la generación de Markdown vive en `probe-core`
   (`collection_to_markdown`, plantilla D1); el server la expone por
   `GET /api/collections/{name}/markdown` y la web descarga el archivo. No hay
@@ -350,6 +355,8 @@ probe/
 - [ ] La web muestra el progreso del test en vivo por SSE sin polling.
 - [ ] El progreso en vivo muestra la solicitud que se está ejecutando y el
       acumulado por solicitud (tabla per-request).
+- [ ] El log en vivo muestra cada ejecución con su resultado (status HTTP o
+      error) en orden secuencial, tanto durante la ejecución como en el reporte.
 - [ ] Una colección se puede exportar a Markdown desde la web (descarga `.md`).
 - [ ] La web permite subir un CSV desde el navegador para un test.
 - [ ] Los tests del frontend (Vitest) y del backend (cargo) pasan con `make test`.

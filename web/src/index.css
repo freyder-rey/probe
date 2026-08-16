@@ -335,6 +335,35 @@ body {
 
 .report-errors { font-size: 13px; color: var(--red); margin: 4px 0; padding-left: 18px; }
 
+.report-log {
+  list-style: none;
+  margin: 6px 0 10px;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.log-row {
+  display: grid;
+  grid-template-columns: 48px 1fr 110px auto;
+  gap: 10px;
+  align-items: center;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.log-row:last-child { border-bottom: none; }
+
+.log-row.ok .log-status { color: var(--green); }
+.log-row.fail .log-status { color: var(--red); }
+
+.log-iter { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.log-req { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-detail { color: var(--text-dim); text-align: right; }
+
 .method.get { color: var(--green); }
 .method.post { color: var(--orange); }
 .method.put { color: var(--accent); }
