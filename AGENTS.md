@@ -93,6 +93,13 @@ npm --prefix web run lint   # oxlint
   (regla del repo; el push directo solo funciona con bypass del dueño).
 - Flujo: crear rama desde `develop` → commit → push → `gh pr create --base develop`.
 - Identidad git local ya configurada: `Leonardo Rey <86794757+freyder-rey@users.noreply.github.com>`.
+- **Releases**: cada push a `main` (merge de develop → main) dispara el action
+  `.github/workflows/release.yml`: auto-incrementa el patch semver (`v0.1.0` →
+  `v0.1.1`…), crea el tag, compila binarios de `probe` y `probe-server` para
+  Linux/macOS (x86_64 + aarch64)/Windows y publica un GitHub Release con el
+  changelog de PRs mergeados. La versión del tag y la del workspace
+  `Cargo.toml` (`0.1.0`) se mantienen sincronizadas solo en el arranque; los
+  bumps son por tag.
 
 ## Estado actual
 
