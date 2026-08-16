@@ -60,6 +60,13 @@ cargo clippy --workspace    # debe quedar sin warnings
 cargo run -p probe-cli -- run https://httpbin.org/json
 cargo run -p probe-server   # web en http://127.0.0.1:7878
 
+# Atajos con Makefile (raíz)
+make dev                    # backend + frontend dev en paralelo (Ctrl+C detiene ambos)
+make server                 # solo el backend
+make web                    # solo el frontend dev (vite :5173)
+make build                  # compila el frontend React a static/dist/
+make test                   # tests Rust + lint frontend
+
 # Frontend React (web/)
 npm --prefix web install
 npm --prefix web run build  # genera crates/probe-server/static/dist/ (gitignored)
