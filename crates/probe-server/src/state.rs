@@ -4,7 +4,8 @@ use std::{
 };
 
 use probe_core::{
-    CollectionRepository, HttpExecutor, LoadTestReport, LoadTestRunner, RequestSummary, RunProgress,
+    CollectionRepository, HttpExecutor, LoadTestReport, LoadTestRunner, RequestSummary, RunEvent,
+    RunProgress,
 };
 use tokio::sync::watch;
 
@@ -64,6 +65,8 @@ pub struct RunState {
     pub current_request: Option<String>,
     /// Acumulado por solicitud en vivo (progreso real-time).
     pub per_request: Vec<RequestSummary>,
+    /// Última ejecución completada (log en vivo).
+    pub last_event: Option<RunEvent>,
     /// Notifica cambios de progreso a los suscriptores SSE (último valor).
     pub progress: watch::Sender<RunStatusResponse>,
 }
@@ -78,6 +81,7 @@ impl RunState {
             error: None,
             current_request: None,
             per_request: Vec::new(),
+            last_event: None,
         });
         RunState {
             status: "running".to_string(),
@@ -88,6 +92,7 @@ impl RunState {
             error: None,
             current_request: None,
             per_request: Vec::new(),
+            last_event: None,
             progress,
         }
     }
@@ -98,6 +103,9 @@ impl RunState {
         self.total = progress.total;
         self.current_request = progress.current_request;
         self.per_request = progress.per_request;
+        if let Some(event) = progress.last_event {
+            self.last_event = Some(event);
+        }
     }
 
     /// Emite el estado actual por el canal de progreso (SSE).
@@ -116,6 +124,7 @@ pub struct RunStatusResponse {
     pub error: Option<String>,
     pub current_request: Option<String>,
     pub per_request: Vec<RequestSummary>,
+    pub last_event: Option<RunEvent>,
 }
 
 impl RunStatusResponse {
@@ -128,6 +137,7 @@ impl RunStatusResponse {
             error: run.error.clone(),
             current_request: run.current_request.clone(),
             per_request: run.per_request.clone(),
+            last_event: run.last_event.clone(),
         }
     }
 }

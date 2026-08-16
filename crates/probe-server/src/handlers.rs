@@ -212,6 +212,7 @@ pub async fn test_stop(
         error: None,
         current_request: None,
         per_request: Vec::new(),
+        last_event: None,
     }))
 }
 

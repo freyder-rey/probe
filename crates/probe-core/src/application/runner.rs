@@ -11,7 +11,8 @@ use async_trait::async_trait;
 use tokio::time::{sleep, Duration};
 
 use crate::domain::{
-    Body, CsvSource, KeyValue, LoadTest, LoadTestReport, Request, RequestSummary, RunProgress,
+    Body, CsvSource, KeyValue, LoadTest, LoadTestReport, Request, RequestSummary, RunEvent,
+    RunProgress,
 };
 
 use super::{
@@ -22,6 +23,7 @@ struct Sample {
     duration_ms: u128,
     passed: bool,
     error: Option<String>,
+    status: Option<u16>,
 }
 
 /// Ejecuta tests de carga en secuencia, respetando delays reales entre
@@ -96,6 +98,7 @@ impl Runner {
                     total,
                     current_request: Some(req.name.clone()),
                     per_request: snapshot(&per_request),
+                    last_event: None,
                 });
 
                 let sample = match self.engine.execute(&interpolate_request(req, &vars)).await {
@@ -105,12 +108,14 @@ impl Runner {
                             duration_ms: resp.duration_ms,
                             passed,
                             error: None,
+                            status: Some(resp.status),
                         }
                     }
                     Err(err) => Sample {
                         duration_ms: 0,
                         passed: false,
                         error: Some(err.to_string()),
+                        status: None,
                     },
                 };
 
@@ -120,7 +125,7 @@ impl Runner {
                 if sample.passed {
                     successes += 1;
                 } else if errors.len() < 20 {
-                    if let Some(e) = sample.error {
+                    if let Some(ref e) = sample.error {
                         errors.push(format!("{}: {e}", req.name));
                     }
                 }
@@ -146,6 +151,14 @@ impl Runner {
                     total,
                     current_request: None,
                     per_request: snapshot(&per_request),
+                    last_event: Some(RunEvent {
+                        request: req.name.clone(),
+                        iteration: i + 1,
+                        status: sample.status,
+                        ok: sample.passed,
+                        duration_ms: sample.duration_ms,
+                        error: sample.error.clone(),
+                    }),
                 });
 
                 if test.delay_ms > 0 && pos + 1 < flow.len() {
@@ -420,5 +433,61 @@ mod tests {
         let runner = runner();
         let result = runner.select_flow(&test, &requests);
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn progress_emits_last_event_with_status() {
+        let base = spawn_echo_server().await;
+        let requests = vec![
+            request(
+                "ok",
+                format!("{base}/echo?id=1"),
+                vec![Validation::StatusEquals {
+                    name: "status".into(),
+                    expected: 200,
+                }],
+            ),
+            request(
+                "bad",
+                format!("{base}/error"),
+                vec![Validation::StatusEquals {
+                    name: "status".into(),
+                    expected: 200,
+                }],
+            ),
+        ];
+        let test = LoadTest {
+            name: "eventos".to_string(),
+            request_names: vec![],
+            iterations: 2,
+            delay_ms: 0,
+            csv: None,
+        };
+
+        let runner = runner();
+        let events: Arc<std::sync::Mutex<Vec<crate::domain::RunEvent>>> =
+            Arc::new(std::sync::Mutex::new(Vec::new()));
+        let collected = events.clone();
+        runner
+            .run(&test, &requests, None, move |p| {
+                if let Some(e) = p.last_event {
+                    if let Ok(mut list) = collected.lock() {
+                        list.push(e);
+                    }
+                }
+            })
+            .await
+            .unwrap();
+
+        let events = events.lock().unwrap();
+        assert_eq!(events.len(), 4);
+        assert_eq!(events[0].request, "ok");
+        assert_eq!(events[0].status, Some(200));
+        assert!(events[0].ok);
+        assert_eq!(events[1].request, "bad");
+        assert_eq!(events[1].status, Some(500));
+        assert!(!events[1].ok);
+        assert_eq!(events[2].iteration, 2);
+        assert_eq!(events[3].request, "bad");
     }
 }

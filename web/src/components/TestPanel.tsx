@@ -1,4 +1,5 @@
-import type { LoadTestReport, RunStatus } from '../types'
+import { useEffect, useRef, useState } from 'react'
+import type { LoadTestReport, RunEvent, RunStatus } from '../types'
 
 interface Props {
   title: string
@@ -43,8 +44,57 @@ function renderReport(r: LoadTestReport) {
   )
 }
 
+function renderEvent(e: RunEvent) {
+  const label = e.status != null ? `Status ${e.status}` : 'error de red'
+  const detail = e.error ?? `${e.durationMs} ms`
+  return (
+    <li className={`log-row ${e.ok ? 'ok' : 'fail'}`} key={`${e.request}-${e.iteration}`}>
+      <span className="log-iter">#{e.iteration}</span>
+      <span className="log-req">{e.request}</span>
+      <span className="log-status">{label}</span>
+      <span className="log-detail">{detail}</span>
+    </li>
+  )
+}
+
+function renderLog(log: RunEvent[]) {
+  if (log.length === 0) return null
+  return (
+    <>
+      <p className="report-detail">Ejecuciones:</p>
+      <ul className="report-log" data-testid="test-panel-log">
+        {log.map(renderEvent)}
+      </ul>
+    </>
+  )
+}
+
 export function TestPanel({ title, status, onStop, onRunAgain }: Props) {
   const running = status?.status === 'running'
+  const prevStatus = useRef<string | null>(null)
+  const [log, setLog] = useState<RunEvent[]>([])
+
+  useEffect(() => {
+    if (!status) {
+      prevStatus.current = null
+      setLog([])
+      return
+    }
+    if (status.status === 'running' && prevStatus.current !== 'running') {
+      setLog([])
+    }
+    prevStatus.current = status.status
+    if (status.lastEvent) {
+      const e = status.lastEvent
+      setLog((prev) => {
+        const last = prev[prev.length - 1]
+        if (last && last.request === e.request && last.iteration === e.iteration && last.durationMs === e.durationMs) {
+          return prev
+        }
+        return [...prev, e]
+      })
+    }
+  }, [status])
 
   return (
     <div id="test-panel">
@@ -76,6 +126,7 @@ export function TestPanel({ title, status, onStop, onRunAgain }: Props) {
               style={{ width: `${status.total ? Math.round((status.done / status.total) * 100) : 0}%` }}
             />
           </div>
+          {renderLog(log)}
           {status.perRequest.length > 0 && (
             <table className="report-table live" data-testid="test-panel-live-table" id="test-panel-live-table">
               <thead>
@@ -97,6 +148,7 @@ export function TestPanel({ title, status, onStop, onRunAgain }: Props) {
           <p className={`report-status ${status.status}`}>{status.status}</p>
           {status.error && <p className="report-error">{status.error}</p>}
           {status.report && renderReport(status.report)}
+          {renderLog(log)}
         </div>
       )}
     </div>
