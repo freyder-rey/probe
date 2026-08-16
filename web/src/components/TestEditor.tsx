@@ -1,3 +1,5 @@
+import { useRef } from 'react'
+import { api } from '../api'
 import type { Collection, TestDraft } from '../types'
 
 interface Props {
@@ -12,9 +14,20 @@ export function TestEditor({ collections, draft, onChange, onRun, onSave }: Prop
   const source = collections.find((c) => c.name === draft.collection)
   const requests = source?.requests ?? []
   const checked = draft.requestNames.filter((n) => requests.some((r) => r.name === n)).length
+  const csvInputRef = useRef<HTMLInputElement>(null)
 
   function set<K extends keyof TestDraft>(key: K, value: TestDraft[K]) {
     onChange({ ...draft, [key]: value })
+  }
+
+  async function pickCsv(file: File) {
+    try {
+      const path = await api.uploadCsv(file.name, await file.text())
+      set('csv', path)
+    } catch (err) {
+      set('csv', '')
+      alert('No se pudo subir el CSV: ' + (err as Error).message)
+    }
   }
 
   function toggleRequest(name: string, nextChecked: boolean) {
@@ -121,14 +134,34 @@ export function TestEditor({ collections, draft, onChange, onRun, onSave }: Prop
         </label>
       </div>
 
-      <label className="field">CSV (ruta local)
+      <label className="field">CSV (datos para {'{{variables}}'})
         <input
           id="test-csv"
-          placeholder="~/datos.csv"
+          placeholder="ruta local o elegí un archivo…"
           spellCheck={false}
           value={draft.csv}
           onChange={(e) => set('csv', e.target.value)}
         />
+        <input
+          ref={csvInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          id="test-csv-file"
+          aria-label="Elegir archivo CSV"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) void pickCsv(file)
+            e.target.value = ''
+          }}
+        />
+        <button
+          type="button"
+          id="test-csv-pick"
+          className="linkish"
+          onClick={() => csvInputRef.current?.click()}
+        >
+          Subir CSV…
+        </button>
       </label>
 
       <div className="test-actions">

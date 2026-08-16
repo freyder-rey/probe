@@ -176,7 +176,21 @@ modal de guardado.
    fina: modal de guardado de solicitud con "crear nueva colección" y guardado
    en un clic, splitter arrastrable y Escape cierra modales. Verificado: build,
    lint, 20 tests, servido SPA + fallback vanilla.
-5. **G (progreso real-time)** y **H (picker de CSV)** sobre el frontend React
-   (regla: no construir sobre el vanilla).
+5. **G — progreso real-time con SSE** y **H — picker de CSV** sobre el frontend
+   React (regla: no construir sobre el vanilla):
+   - **Backend**: `RunState` gana un canal `watch` (`progress`), y los handlers
+     lo notifican en cada avance del runner (`run.notify()` dentro del closure
+     `on_progress` y al terminar). Nuevo endpoint `GET
+     /api/tests/{collection}/{test}/events` (`test_events`) que emite un stream
+     SSE (async-stream) con el `RunStatusResponse` actual y cierra al salir de
+     `running`. Nuevo `POST /api/csv` (`upload_csv`) que guarda el contenido en
+     `csv_dir()` (`~/.probe/collections/csv/`, override `PROBE_COLLECTIONS_DIR`)
+     y devuelve la ruta que lee el runner. `RunStatusResponse` ahora es `Clone`.
+   - **web**: el polling de 400 ms se reemplazó por un `EventSource` sobre
+     `/events` (cierra al recibir status != running); `TestEditor` gana un
+     picker de CSV (`Subir CSV…`, lee el archivo y lo sube a `/api/csv`).
+   - Verificado: build, lint, 20 tests, clippy limpio, smoke end-to-end del SSE
+     (progreso 1/20→20/20 + reporte, y stop en vivo con `stopped`) y de la
+     subida de CSV vía API.
 6. **I — tests + docs** de la UI migrada. Export Markdown y Electron (roadmap).
 7. V2 posible de load tests: pausa/reanudar, más métricas en el reporte.

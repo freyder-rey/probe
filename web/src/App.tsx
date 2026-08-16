@@ -26,7 +26,6 @@ export default function App() {
   const [runStatus, setRunStatus] = useState<RunStatus | null>(null)
   const [runTitle, setRunTitle] = useState('')
   const [saveTestOpen, setSaveTestOpen] = useState(false)
-  const pollRef = useRef<number | null>(null)
   const mainRef = useRef<HTMLElement>(null)
   const editorRef = useRef<HTMLElement>(null)
   const [editorWidth, setEditorWidth] = useState<number | null>(null)
@@ -116,26 +115,27 @@ export default function App() {
 
   useEffect(() => {
     if (!runKey) return
-    clearInterval(pollRef.current ?? undefined)
     const { collection, test } = runKey
-    pollRef.current = window.setInterval(async () => {
+    const es = new EventSource(
+      `/api/tests/${encodeURIComponent(collection)}/${encodeURIComponent(test)}/events`,
+    )
+    es.onmessage = (ev) => {
       try {
-        const status = await api.testStatus(collection, test)
+        const status = JSON.parse(ev.data) as RunStatus
         setRunStatus(status)
         if (status.status !== 'running') {
-          clearInterval(pollRef.current ?? undefined)
-          pollRef.current = null
-          await refreshCollections()
+          es.close()
+          void refreshCollections()
         }
       } catch {
-        clearInterval(pollRef.current ?? undefined)
-        pollRef.current = null
+        es.close()
       }
-    }, 400)
-    return () => {
-      clearInterval(pollRef.current ?? undefined)
-      pollRef.current = null
     }
+    es.onerror = () => {
+      es.close()
+      void refreshCollections()
+    }
+    return () => es.close()
   }, [runKey, refreshCollections])
 
   async function handleSend() {

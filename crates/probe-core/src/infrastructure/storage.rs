@@ -108,3 +108,13 @@ fn collections_dir() -> Result<PathBuf> {
         .context("no se pudo determinar el directorio de inicio del usuario")?;
     Ok(PathBuf::from(home).join(".probe").join("collections"))
 }
+
+/// Directorio donde se guardan los CSV subidos por la web. Reutiliza el
+/// override `PROBE_COLLECTIONS_DIR` (o `~/.probe/csv`) para que tests y runner
+/// apunten al mismo lugar.
+pub fn csv_dir() -> Result<PathBuf> {
+    let dir = collections_dir()?.join("csv");
+    fs::create_dir_all(&dir)
+        .with_context(|| format!("no se pudo crear el directorio de CSV: {}", dir.display()))?;
+    Ok(dir)
+}

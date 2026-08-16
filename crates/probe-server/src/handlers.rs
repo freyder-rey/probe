@@ -6,9 +6,12 @@ use std::sync::{
 use axum::{
     extract::{Path, State},
     http::StatusCode,
+    response::sse::{Event, Sse},
     Json,
 };
+use futures_util::stream::Stream;
 use probe_core::{Collection, LoadTestReport};
+use std::convert::Infallible;
 
 use crate::state::{AppState, RunState, RunStatusResponse};
 
@@ -112,6 +115,7 @@ async fn run_test(
                 runs.update(&key, |run| {
                     run.done = done;
                     run.total = total;
+                    run.notify();
                 });
             }),
         )
@@ -141,19 +145,22 @@ pub async fn test_start(
     let state_for_run = state.clone();
     tokio::spawn(async move {
         let outcome = run_test(&collection, &test, &cancel, &state_for_run, &key_for_run).await;
-        state_for_run.runs.update(&key_for_run, |run| match outcome {
-            Ok(report) => {
-                run.report = Some(report);
-                run.status = if cancel.load(Ordering::Relaxed) {
-                    "stopped".to_string()
-                } else {
-                    "done".to_string()
-                };
+        state_for_run.runs.update(&key_for_run, |run| {
+            match outcome {
+                Ok(report) => {
+                    run.report = Some(report);
+                    run.status = if cancel.load(Ordering::Relaxed) {
+                        "stopped".to_string()
+                    } else {
+                        "done".to_string()
+                    };
+                }
+                Err(err) => {
+                    run.status = "error".to_string();
+                    run.error = Some(err.to_string());
+                }
             }
-            Err(err) => {
-                run.status = "error".to_string();
-                run.error = Some(err.to_string());
-            }
+            run.notify();
         });
     });
 
@@ -194,4 +201,70 @@ pub async fn test_stop(
         report: None,
         error: None,
     }))
+}
+
+/// Stream SSE con el progreso en vivo de una ejecución. Cierra cuando el run
+/// ya no está `running` (done/stopped/error) y se agotan los cambios.
+pub async fn test_events(
+    State(state): State<AppState>,
+    Path((collection, test)): Path<(String, String)>,
+) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, (StatusCode, String)> {
+    let key = test_key(&collection, &test);
+    let run = state
+        .runs
+        .get(&key)
+        .ok_or((StatusCode::NOT_FOUND, "no hay ejecución para este test".to_string()))?;
+    let mut rx = run.progress.subscribe();
+
+    let stream = async_stream::stream! {
+        loop {
+            let current = rx.borrow_and_update().clone();
+            if let Ok(event) = Event::default().json_data(&current) {
+                yield Ok(event);
+            }
+            if current.status != "running" {
+                break;
+            }
+            if rx.changed().await.is_err() {
+                break;
+            }
+        }
+    };
+    Ok(Sse::new(stream))
+}
+
+#[derive(serde::Deserialize)]
+pub struct UploadCsvBody {
+    pub name: String,
+    pub content: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct UploadCsvResponse {
+    pub path: String,
+}
+
+/// Guarda un CSV subido por el navegador en el directorio de datos y devuelve
+/// la ruta que el runner leerá (el navegador no puede dar rutas locales).
+pub async fn upload_csv(
+    Json(body): Json<UploadCsvBody>,
+) -> Result<Json<UploadCsvResponse>, (StatusCode, String)> {
+    let dir = probe_core::csv_dir().map_err(internal)?;
+    let name = sanitize_csv_name(&body.name);
+    let path = dir.join(format!("{name}.csv"));
+    std::fs::write(&path, body.content.as_bytes())
+        .map_err(|e| internal(anyhow::anyhow!(e)))?;
+    Ok(Json(UploadCsvResponse {
+        path: path.to_string_lossy().into_owned(),
+    }))
+}
+
+fn sanitize_csv_name(name: &str) -> String {
+    let stem = name.strip_suffix(".csv").unwrap_or(name);
+    stem.chars()
+        .map(|c| match c {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+            _ => c,
+        })
+        .collect()
 }

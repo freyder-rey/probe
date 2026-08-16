@@ -19,8 +19,8 @@ use probe_core::{
 use tower_http::services::{ServeDir, ServeFile};
 
 use handlers::{
-    delete_collection, execute, list_collections, load_collection, save_collection, test_start,
-    test_status, test_stop,
+    delete_collection, execute, list_collections, load_collection, save_collection, test_events,
+    test_start, test_status, test_stop, upload_csv,
 };
 use state::{AppState, RunRegistry};
 
@@ -50,6 +50,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/tests/{collection}/{test}/start", post(test_start))
         .route("/api/tests/{collection}/{test}/status", get(test_status))
         .route("/api/tests/{collection}/{test}/stop", post(test_stop))
+        .route("/api/tests/{collection}/{test}/events", get(test_events))
+        .route("/api/csv", post(upload_csv))
         .with_state(AppState {
             repo,
             engine,

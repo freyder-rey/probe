@@ -4,6 +4,7 @@ use std::{
 };
 
 use probe_core::{CollectionRepository, HttpExecutor, LoadTestReport, LoadTestRunner};
+use tokio::sync::watch;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -57,10 +58,19 @@ pub struct RunState {
     pub cancel: Arc<AtomicBool>,
     pub report: Option<LoadTestReport>,
     pub error: Option<String>,
+    /// Notifica cambios de progreso a los suscriptores SSE (último valor).
+    pub progress: watch::Sender<RunStatusResponse>,
 }
 
 impl RunState {
     pub fn running(cancel: Arc<AtomicBool>) -> Self {
+        let (progress, _) = watch::channel(RunStatusResponse {
+            status: "running".to_string(),
+            done: 0,
+            total: 0,
+            report: None,
+            error: None,
+        });
         RunState {
             status: "running".to_string(),
             done: 0,
@@ -68,11 +78,17 @@ impl RunState {
             cancel,
             report: None,
             error: None,
+            progress,
         }
+    }
+
+    /// Emite el estado actual por el canal de progreso (SSE).
+    pub fn notify(&self) {
+        let _ = self.progress.send(RunStatusResponse::from_run(self));
     }
 }
 
-#[derive(serde::Serialize)]
+#[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunStatusResponse {
     pub status: String,

@@ -17,5 +17,5 @@ pub use domain::{
     RequestSummary, Response, Validation, ValidationResult,
 };
 pub use infrastructure::{
-    load_csv_rows, CsvLoader, FileCollectionRepository, InMemoryCollectionRepository,
+    csv_dir, load_csv_rows, CsvLoader, FileCollectionRepository, InMemoryCollectionRepository,
 };
