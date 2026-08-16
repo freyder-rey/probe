@@ -19,7 +19,7 @@ crates/
 │       ├── application/     # servicios (engine HTTP, validaciones, interpolación, runner de carga)
 │       └── infrastructure/  # persistencia (storage) e IO (csv)
 ├── probe-cli/      # binario `probe` (clap): main.rs + args.rs + run.rs + collection.rs + test.rs
-└── probe-server/   # API axum + frontend estático: main.rs (router) + handlers.rs + state.rs
+└── probe-server/   # API axum + frontend: main.rs (router) + handlers.rs + state.rs
 ```
 
 - `probe-core` es el núcleo compartido; CLI y server lo usan. Cada capa declara
@@ -31,9 +31,12 @@ crates/
   `HttpExecutor`, `CsvRowLoader`, `LoadTestRunner`); `infrastructure` los
   implementa. CLI y server construyen los concretos en su composition root
   (`main.rs`) y los inyectan a los handlers/comandos.
-- El frontend lo sirve el server vía `include_str!` desde
-  `crates/probe-server/static/` (sin build step). Electron envolverá esta misma
-  UI como cáscara de escritorio en una etapa posterior (decisión D3).
+- Frontend: **React + TypeScript + Vite** en `web/` (raíz del repo, reutilizable
+  por Electron). El build (`npm --prefix web run build`) genera
+  `crates/probe-server/static/dist/` y el server lo sirve **desde disco** en
+  runtime (fallback a index.html para rutas SPA). Si no existe el build, el
+  server sirve el frontend vanilla de `static/` como fallback (decisión D3).
+  Dev: Vite en :5173 con proxy de `/api` a `:7878`.
 
 ## Convenciones
 
@@ -52,11 +55,22 @@ crates/
 
 ```sh
 cargo build                 # compila todo el workspace
-cargo test --workspace      # 19 tests unitarios + integración del runner
+cargo test --workspace      # 20 tests unitarios + integración del runner
 cargo clippy --workspace    # debe quedar sin warnings
 cargo run -p probe-cli -- run https://httpbin.org/json
 cargo run -p probe-server   # web en http://127.0.0.1:7878
+
+# Frontend React (web/)
+npm --prefix web install
+npm --prefix web run build  # genera crates/probe-server/static/dist/ (gitignored)
+npm --prefix web run dev    # dev server :5173 con proxy de /api a :7878
+npm --prefix web run lint   # oxlint
 ```
+
+> Si no existe `static/dist/`, el server sirve el frontend vanilla de `static/`
+> como fallback (ambos caminos se mantienen durante la migración).
+> Nota de toolchain: `.cargo/config.toml` fija `linker = "cc"` (en Arch/CachyOS
+> gcc no expone el prefijo triple `x86_64-linux-gnu-`).
 
 ## Almacenamiento de colecciones
 
@@ -131,12 +145,18 @@ modal de guardado.
 
 ### Dónde vamos
 
-1. **PR C — frontend React+Vite** (decisión: adoptar React ahora, no al llegar a
-   Electron; revisar D3 en SPEC). **Bloqueado por tooling: falta instalar Node.js**
-   (`sudo pacman -S nodejs npm` en CachyOS). El entorno de shell no permite sudo
-   interactivo; lo instala el dueño y retomamos.
-   Secuencia pendiente: C (scaffold) → D/E/F (migración por fases + CodeMirror)
-   → G (progreso real-time) → H (picker de CSV) → I (tests+docs).
-   Regla: no construir G/H sobre frontend vanilla si viene React.
-2. Export Markdown y Electron (roadmap).
-3. V2 posible de load tests: pausa/reanudar, más métricas en el reporte.
+1. **PR C (este) — frontend React+Vite**: scaffold en `web/` (React 19 + Vite 8 +
+   TS 6 + oxlint), tipos TS que reflejan el JSON serde, cliente API, shell con
+   sidebar de colecciones + editor de solicitud + panel de respuesta. Build →
+   `crates/probe-server/static/dist/` (gitignored), servido desde disco por el
+   server con fallback al frontend vanilla y SPA fallback a index.html. Dev con
+   Vite :5173 proxando `/api` a :7878. `.cargo/config.toml` fija el linker `cc`.
+   Verificado: build, clippy, 20 tests, smoke API + web + fallback vanilla.
+2. **D/E/F — migración por fases + CodeMirror**: completar la paridad del editor
+   React (validaciones por kind, body urlencoded, modal de guardado con
+   colección destino, modo Test con polling/reporte) y sumar CodeMirror para
+   resaltado de JSON y de `{{variables}}`.
+3. **G (progreso real-time)** y **H (picker de CSV)** sobre el frontend React
+   (regla: no construir sobre el vanilla).
+4. **I — tests + docs** de la UI migrada. Export Markdown y Electron (roadmap).
+5. V2 posible de load tests: pausa/reanudar, más métricas en el reporte.

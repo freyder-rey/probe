@@ -122,7 +122,9 @@ Estos puntos se evalúan en etapas posteriores, a definir conforme avance el pro
 
 ### RF-8: Web
 
-- Interfaz simple (HTML + JS, sin build step) servida por el backend.
+- Interfaz React + TypeScript (Vite) compilada a `crates/probe-server/static/dist/`
+  y servida por el backend desde disco (SPA con fallback a `index.html`).
+  Mientras no exista el build, el server sirve el frontend vanilla de `static/`.
 - Editor de solicitud: método (cualquier verbo), URL, query, headers, body
   (none/raw/urlencoded), timeout, seguir redirects y validaciones.
 - Visor de respuesta: status, tiempo, resultado de validaciones (✓/✗), headers
@@ -265,7 +267,7 @@ _Generado desde la colección `<archivo>.json`_
 | Cliente HTTP     | `reqwest`                       |
 | CLI              | `clap`                          |
 | Backend Web      | `axum`                          |
-| Frontend Web     | HTML + JS (sin build step)      |
+| Frontend Web     | React + TypeScript (Vite)       |
 | App de escritorio | Electron (etapa posterior)     |
 
 ## 8. Estructura del repo (propuesta)
@@ -286,8 +288,11 @@ probe/
 - **D1 — Markdown**: plantilla simple, una sección por request (definida arriba).
 - **D2 — Body etapa 1**: `raw` + `x-www-form-urlencoded` + `none`.
   `multipart/form-data` fuera de alcance.
-- **D3 — Frontend**: web primero (HTML + JS servido por axum); Electron como
-  cáscara de escritorio en etapa posterior que carga la misma UI.
+- **D3 — Frontend**: web con **React + TypeScript (Vite)** compilado a
+  `crates/probe-server/static/dist/` y servido desde disco por axum; el frontend
+  vanilla de `static/` queda como fallback mientras no exista el build.
+  Electron será una cáscara de escritorio en etapa posterior que carga la misma
+  UI web. El dev server de Vite proxya `/api` al server en `:7878`.
 - **D4 — Timeout/redirects**: timeout 30 s configurable; seguir redirecciones
   hasta 10 por defecto, desactivable.
 - **D5 — Variables**: sintaxis `{{nombre}}` definida e **implementada** (los
