@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../api'
-import type { Collection, Request } from '../types'
+import type { Collection, LoadTest, Request, RunStatus } from '../types'
 import { newRequest } from '../types'
 
 interface Props {
@@ -8,9 +8,57 @@ interface Props {
   onSelect: (r: Request) => void
   onRefresh: () => Promise<void>
   onToast: (msg: string, ok?: boolean) => void
+  onNewTest: () => void
+  onEditTest: (collectionName: string, test: LoadTest) => void
+  onRunTest: (collectionName: string, testName: string) => void
+  onShowReport: (collectionName: string, test: LoadTest) => void
 }
 
-export function Sidebar({ collections, onSelect, onRefresh, onToast }: Props) {
+function TestItem({
+  collectionName,
+  test,
+  onEdit,
+  onRun,
+  onShowReport,
+}: {
+  collectionName: string
+  test: LoadTest
+  onEdit: (test: LoadTest) => void
+  onRun: () => void
+  onShowReport: (test: LoadTest) => void
+}) {
+  const [status, setStatus] = useState<RunStatus | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    api.testStatus(collectionName, test.name)
+      .then((s) => { if (alive) setStatus(s) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [collectionName, test.name])
+
+  const running = status?.status === 'running'
+  const hasReport = !running && status && (status.report !== null || status.error !== null)
+
+  return (
+    <div className="test-item" data-name={test.name}>
+      <button className="run" title={running ? 'Detener' : 'Ejecutar'} onClick={onRun}>
+        {running ? '■' : '▶'}
+      </button>
+      <button className="name" title="Editar" onClick={() => onEdit(test)}>{test.name}</button>
+      <span className="status">
+        {running ? (status.total ? `${status.done}/${status.total}` : '…') : (status ? status.status : '')}
+      </span>
+      {hasReport && (
+        <button className="report-link" onClick={() => onShowReport(test)}>Ver reporte</button>
+      )}
+    </div>
+  )
+}
+
+export function Sidebar({
+  collections, onSelect, onRefresh, onToast, onNewTest, onEditTest, onRunTest, onShowReport,
+}: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [activeRequest, setActiveRequest] = useState<string | null>(null)
 
@@ -61,6 +109,7 @@ export function Sidebar({ collections, onSelect, onRefresh, onToast }: Props) {
       <div className="sidebar-actions">
         <button onClick={handleNewCollection} title="Crear colección vacía">+ Colección</button>
         <button onClick={handleNewRequest} title="Nueva solicitud en el editor">+ Solicitud</button>
+        <button onClick={onNewTest} title="Nuevo test en el editor">+ Test</button>
       </div>
       <div id="collection-list">
         {collections.map((c) => {
@@ -73,18 +122,37 @@ export function Sidebar({ collections, onSelect, onRefresh, onToast }: Props) {
                 <button className="del" title="Eliminar" onClick={(e) => { e.stopPropagation(); void handleDelete(c.name) }}>×</button>
               </div>
               {isOpen && (
-                <div className="requests" style={{ display: 'block' }}>
-                  {c.requests.length === 0 && <div className="request-item">(sin solicitudes)</div>}
-                  {c.requests.map((r) => (
-                    <div
-                      className={`request-item${activeRequest === r.name ? ' active' : ''}`}
-                      key={r.id ?? r.name}
-                      onClick={() => selectRequest(r)}
-                    >
-                      <span className={`method ${r.method.toLowerCase()}`}>{r.method}</span> {r.name}
+                <>
+                  <div className="requests" style={{ display: 'block' }}>
+                    {c.requests.length === 0 && <div className="request-item">(sin solicitudes)</div>}
+                    {c.requests.map((r) => (
+                      <div
+                        className={`request-item${activeRequest === r.name ? ' active' : ''}`}
+                        key={r.id ?? r.name}
+                        onClick={() => selectRequest(r)}
+                      >
+                        <span className={`method ${r.method.toLowerCase()}`}>{r.method}</span> {r.name}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="tests">
+                    <div className="tests-head">
+                      <span>Tests</span>
+                      <button className="add-test" onClick={() => onNewTest()}>+ Nuevo test</button>
                     </div>
-                  ))}
-                </div>
+                    {c.tests.length === 0 && <div className="test-item">(sin tests)</div>}
+                    {c.tests.map((t) => (
+                      <TestItem
+                        key={t.name}
+                        collectionName={c.name}
+                        test={t}
+                        onEdit={(test) => onEditTest(c.name, test)}
+                        onRun={() => onRunTest(c.name, t.name)}
+                        onShowReport={(test) => onShowReport(c.name, test)}
+                      />
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           )

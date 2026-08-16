@@ -417,6 +417,8 @@ cargo run -p probe-server
 | POST   | `/api/tests/{c}/{t}/start`  | inicia un test en segundo plano              |
 | GET    | `/api/tests/{c}/{t}/status` | estado y reporte de la ejecución             |
 | POST   | `/api/tests/{c}/{t}/stop`   | detiene una ejecución en curso               |
+| GET    | `/api/tests/{c}/{t}/events` | **SSE** con el progreso en vivo hasta el final |
+| POST   | `/api/csv`                  | sube un CSV (`{name, content}`) y devuelve `{path}` |
 
 ### Ejemplo: ejecutar una solicitud
 

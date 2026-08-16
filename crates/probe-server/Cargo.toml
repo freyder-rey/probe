@@ -7,6 +7,8 @@ license.workspace = true
 [dependencies]
 probe-core.workspace = true
 axum.workspace = true
+async-stream.workspace = true
+futures-util.workspace = true
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true

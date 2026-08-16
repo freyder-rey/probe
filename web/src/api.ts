@@ -64,4 +64,14 @@ export const api = {
       { method: 'POST' },
     )
   },
+
+  async uploadCsv(name: string, content: string): Promise<string> {
+    const res = await fetch('/api/csv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, content }),
+    })
+    const data = await json<{ path: string }>(res)
+    return data.path
+  },
 }

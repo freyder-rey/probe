@@ -217,6 +217,19 @@ body {
 
 .field legend { padding: 0 4px; }
 
+#test-csv-file { display: none; }
+
+#test-csv-pick.linkish {
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 13px;
+  cursor: pointer;
+}
+#test-csv-pick.linkish:hover { text-decoration: underline; }
+
 .test-fields { display: flex; gap: 10px; }
 
 .test-fields .field { flex: 1; }
@@ -527,12 +540,20 @@ label.inline { display: flex; align-items: center; gap: 6px; font-size: 13px; co
 
 .body-toolbar { margin-bottom: 8px; }
 
-#raw-body {
+#raw-body, .cm-editor {
   width: 100%;
-  min-height: 120px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-input);
   font-family: ui-monospace, monospace;
-  resize: vertical;
 }
+
+.cm-editor.cm-focused { border-color: var(--accent); }
+
+#tab-body .cm-editor { min-height: 120px; }
+#rtab-body .cm-editor { min-height: 200px; }
+#rtab-body .cm-editor .cm-scroller { overflow: auto; }
 
 .validation-row {
   display: flex;
@@ -572,6 +593,17 @@ label.inline { display: flex; align-items: center; gap: 6px; font-size: 13px; co
 #resp-vcount.fail { color: var(--red); border-color: var(--red); }
 
 #resp-error { color: var(--red); margin-bottom: 8px; flex-shrink: 0; }
+
+.resp-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: 14px;
+  gap: 8px;
+}
 
 #resp-validations { margin-bottom: 8px; }
 

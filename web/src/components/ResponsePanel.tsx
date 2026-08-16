@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Response } from '../types'
+import { JsonEditor } from './JsonEditor'
 
 interface Props {
   response: Response | null
@@ -19,28 +20,24 @@ export function ResponsePanel({ response, error }: Props) {
 
   if (error) {
     return (
-      <section id="response" aria-label="Respuesta">
-        <div className="resp-empty">
-          <div id="resp-error">{error}</div>
-        </div>
-      </section>
+      <div className="resp-empty">
+        <div id="resp-error">{error}</div>
+      </div>
     )
   }
 
   if (!response) {
     return (
-      <section id="response" aria-label="Respuesta">
-        <div className="resp-empty">
-          <p>Envía una solicitud para ver la respuesta.</p>
-        </div>
-      </section>
+      <div className="resp-empty">
+        <p>Envía una solicitud para ver la respuesta.</p>
+      </div>
     )
   }
 
   const passed = response.validationResults.filter((v) => v.passed).length
 
   return (
-    <section id="response" aria-label="Respuesta">
+    <>
       <div id="resp-summary">
         <span
           id="resp-status"
@@ -68,7 +65,11 @@ export function ResponsePanel({ response, error }: Props) {
 
       {tab === 'body' && (
         <div id="rtab-body" className="tab active">
-          <pre id="resp-body">{response.body ? prettyJson(response.body) : '(sin cuerpo)'}</pre>
+          {response.body ? (
+            <JsonEditor value={prettyJson(response.body)} readOnly ariaLabel="Cuerpo de la respuesta" />
+          ) : (
+            <p className="empty-hint">(sin cuerpo)</p>
+          )}
         </div>
       )}
 
@@ -92,6 +93,6 @@ export function ResponsePanel({ response, error }: Props) {
           ))}
         </div>
       )}
-    </section>
+    </>
   )
 }

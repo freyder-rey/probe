@@ -19,8 +19,8 @@ use probe_core::{
 use tower_http::services::{ServeDir, ServeFile};
 
 use handlers::{
-    delete_collection, execute, list_collections, load_collection, save_collection, test_start,
-    test_status, test_stop,
+    delete_collection, execute, list_collections, load_collection, save_collection, test_events,
+    test_start, test_status, test_stop, upload_csv,
 };
 use state::{AppState, RunRegistry};
 
@@ -50,6 +50,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/tests/{collection}/{test}/start", post(test_start))
         .route("/api/tests/{collection}/{test}/status", get(test_status))
         .route("/api/tests/{collection}/{test}/stop", post(test_stop))
+        .route("/api/tests/{collection}/{test}/events", get(test_events))
+        .route("/api/csv", post(upload_csv))
         .with_state(AppState {
             repo,
             engine,
@@ -73,8 +75,36 @@ async fn main() -> anyhow::Result<()> {
     let addr = "127.0.0.1:7878";
     println!("probe server escuchando en http://{addr}");
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
     Ok(())
+}
+
+/// Detiene el server limpiamente con Ctrl+C (SIGINT) o SIGTERM.
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+    println!("probe server deteniéndose…");
 }
 
 async fn index() -> Html<&'static str> {
