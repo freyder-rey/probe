@@ -27,6 +27,34 @@ export default function App() {
   const [runTitle, setRunTitle] = useState('')
   const [saveTestOpen, setSaveTestOpen] = useState(false)
   const pollRef = useRef<number | null>(null)
+  const mainRef = useRef<HTMLElement>(null)
+  const editorRef = useRef<HTMLElement>(null)
+  const [editorWidth, setEditorWidth] = useState<number | null>(null)
+
+  function onSplitterDown(e: React.MouseEvent) {
+    e.preventDefault()
+    const main = mainRef.current
+    const editor = editorRef.current
+    if (!main || !editor) return
+    const rect = main.getBoundingClientRect()
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    function onMove(ev: MouseEvent) {
+      const width = ev.clientX - rect.left - 5
+      const min = 320
+      const max = Math.max(min, rect.width - 320)
+      setEditorWidth(Math.max(min, Math.min(width, max)))
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   function notify(msg: string, ok = true) {
     setToastOk(ok)
@@ -138,6 +166,13 @@ export default function App() {
     notify(`Guardada «${request.name}» en «${saved.name}».`)
   }
 
+  async function handleCreateNew(name: string) {
+    const collection: Collection = { name, version: '1', requests: [request], tests: [] }
+    await api.saveCollection(collection)
+    await refreshCollections()
+    notify(`Guardada «${request.name}» en «${name}».`)
+  }
+
   async function handleRunTest() {
     const test = draftToLoadTest(draft)
     if (!test.name) { notify('El nombre del test es obligatorio.', false); return }
@@ -224,8 +259,8 @@ export default function App() {
         onRunTest={(collectionName, testName) => { setMode('test'); void startTest(collectionName, testName) }}
         onShowReport={showReport}
       />
-      <main>
-        <section id="editor" aria-label="Editor de solicitud y tests">
+      <main ref={mainRef}>
+        <section id="editor" ref={editorRef} style={editorWidth ? { flex: `0 0 ${editorWidth}px` } : undefined} aria-label="Editor de solicitud y tests">
           <div id="mode-switch">
             <button data-mode="request" className={mode === 'request' ? 'active' : ''} onClick={() => setMode('request')}>Solicitud</button>
             <button data-mode="test" className={mode === 'test' ? 'active' : ''} onClick={() => setMode('test')}>Test</button>
@@ -238,6 +273,7 @@ export default function App() {
               collections={collections}
               onSend={handleSend}
               onSave={handleSave}
+              onCreateNew={handleCreateNew}
               sending={sending}
             />
           ) : (
@@ -251,7 +287,7 @@ export default function App() {
           )}
         </section>
 
-        <div id="splitter" role="separator" aria-orientation="vertical" />
+        <div id="splitter" role="separator" aria-orientation="vertical" onMouseDown={onSplitterDown} />
 
         <section id="response" aria-label="Respuesta">
           {mode === 'request' ? (

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Collection } from '../types'
 
 interface Props {
@@ -11,6 +11,14 @@ interface Props {
 
 export function SaveTestModal({ testLabel, collections, origin, onSave, onClose }: Props) {
   const [newName, setNewName] = useState('')
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   function createAndSave() {
     const name = newName.trim()

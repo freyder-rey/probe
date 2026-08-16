@@ -170,8 +170,12 @@ modal de guardado.
    (avg/p95, tabla por solicitud, errores), y lista de tests en la sidebar con
    ejecutar/detener/editar/ver reporte. Verificado: build, lint, 20 tests,
    smoke test end-to-end del runner vía API.
-4. **E/F — CodeMirror + restos**: resaltado de JSON y de `{{variables}}` con
-   CodeMirror; revisar paridad fina restante del vanilla.
+4. **PR E/F — CodeMirror + paridad fina (hecho)**: resaltado de JSON y de
+   `{{variables}}` con CodeMirror 6 (`@uiw/react-codemirror`) en el body raw y
+   en la respuesta (read-only), tema alineado a la paleta de la app. Paridad
+   fina: modal de guardado de solicitud con "crear nueva colección" y guardado
+   en un clic, splitter arrastrable y Escape cierra modales. Verificado: build,
+   lint, 20 tests, servido SPA + fallback vanilla.
 5. **G (progreso real-time)** y **H (picker de CSV)** sobre el frontend React
    (regla: no construir sobre el vanilla).
 6. **I — tests + docs** de la UI migrada. Export Markdown y Electron (roadmap).

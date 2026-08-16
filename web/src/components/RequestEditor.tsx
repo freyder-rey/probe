@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Collection, KeyValue, Request, Validation } from '../types'
+import { JsonEditor } from './JsonEditor'
 
 interface Props {
   request: Request
@@ -7,6 +8,7 @@ interface Props {
   collections: Collection[]
   onSend: () => void
   onSave: (target: Collection) => Promise<void>
+  onCreateNew: (name: string) => Promise<void>
   sending: boolean
 }
 
@@ -79,11 +81,20 @@ function makeValidation(kind: Validation['kind']): Validation {
   }
 }
 
-export function RequestEditor({ request, onChange, onSend, onSave, collections, sending }: Props) {
+export function RequestEditor({ request, onChange, onSend, onSave, onCreateNew, collections, sending }: Props) {
   const [tab, setTab] = useState<'query' | 'headers' | 'body' | 'validations'>('query')
   const [bodyType, setBodyType] = useState<Request['body']['type']>(request.body.type)
   const [saveModal, setSaveModal] = useState(false)
-  const [saveTarget, setSaveTarget] = useState<Collection | null>(null)
+  const [newCollectionName, setNewCollectionName] = useState('')
+
+  useEffect(() => {
+    if (!saveModal) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setSaveModal(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [saveModal])
 
   function set<K extends keyof Request>(key: K, value: Request[K]) {
     onChange({ ...request, [key]: value })
@@ -155,9 +166,16 @@ export function RequestEditor({ request, onChange, onSend, onSave, collections, 
   }
 
   async function handleSave(target: Collection) {
-    await onSave(target)
     setSaveModal(false)
-    setSaveTarget(null)
+    await onSave(target)
+  }
+
+  async function handleCreateNew() {
+    const name = newCollectionName.trim()
+    if (!name) return
+    setSaveModal(false)
+    setNewCollectionName('')
+    await onCreateNew(name)
   }
 
   const methodColor = METHOD_COLORS[request.method.toUpperCase()] ?? ''
@@ -275,13 +293,11 @@ export function RequestEditor({ request, onChange, onSend, onSave, collections, 
             </select>
           </div>
           {request.body.type === 'raw' && (
-            <textarea
-              id="raw-body"
-              placeholder='{"clave": "valor"}'
-              spellCheck={false}
-              aria-label="Body raw"
+            <JsonEditor
               value={request.body.content}
-              onChange={(e) => updateRawBody(e.target.value)}
+              onChange={updateRawBody}
+              placeholder='{"clave": "valor"}'
+              ariaLabel="Body raw"
             />
           )}
           {request.body.type === 'urlencoded' && (
@@ -351,16 +367,27 @@ export function RequestEditor({ request, onChange, onSend, onSave, collections, 
                 <div
                   className="save-collection-item"
                   key={c.name}
-                  onClick={() => { setSaveTarget(c) }}
+                  onClick={() => void handleSave(c)}
                 >
                   <span className="icon">▸</span>
                   <span>{c.name}</span>
                 </div>
               ))}
             </div>
+            <div className="modal-new">
+              <input
+                id="new-collection-name"
+                placeholder="O crear una nueva colección…"
+                spellCheck={false}
+                aria-label="Nombre de la nueva colección"
+                value={newCollectionName}
+                onChange={(e) => setNewCollectionName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleCreateNew() } }}
+              />
+              <button onClick={() => void handleCreateNew()}>Crear y guardar</button>
+            </div>
             <div className="modal-actions">
               <button onClick={() => setSaveModal(false)}>Cancelar</button>
-              {saveTarget && <button className="primary" onClick={() => void handleSave(saveTarget)}>Guardar en «{saveTarget.name}»</button>}
             </div>
           </div>
         </div>

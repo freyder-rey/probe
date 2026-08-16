@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Response } from '../types'
+import { JsonEditor } from './JsonEditor'
 
 interface Props {
   response: Response | null
@@ -64,7 +65,11 @@ export function ResponsePanel({ response, error }: Props) {
 
       {tab === 'body' && (
         <div id="rtab-body" className="tab active">
-          <pre id="resp-body">{response.body ? prettyJson(response.body) : '(sin cuerpo)'}</pre>
+          {response.body ? (
+            <JsonEditor value={prettyJson(response.body)} readOnly ariaLabel="Cuerpo de la respuesta" />
+          ) : (
+            <p className="empty-hint">(sin cuerpo)</p>
+          )}
         </div>
       )}
 

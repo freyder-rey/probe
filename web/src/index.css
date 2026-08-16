@@ -527,12 +527,20 @@ label.inline { display: flex; align-items: center; gap: 6px; font-size: 13px; co
 
 .body-toolbar { margin-bottom: 8px; }
 
-#raw-body {
+#raw-body, .cm-editor {
   width: 100%;
-  min-height: 120px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-input);
   font-family: ui-monospace, monospace;
-  resize: vertical;
 }
+
+.cm-editor.cm-focused { border-color: var(--accent); }
+
+#tab-body .cm-editor { min-height: 120px; }
+#rtab-body .cm-editor { min-height: 200px; }
+#rtab-body .cm-editor .cm-scroller { overflow: auto; }
 
 .validation-row {
   display: flex;
