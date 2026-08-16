@@ -5,10 +5,7 @@ use crate::application::CollectionRepository;
 use crate::domain::Collection;
 
 fn test_storage() -> FileCollectionRepository {
-    let dir = std::env::temp_dir().join(format!(
-        "probe-test-{}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("probe-test-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     FileCollectionRepository { dir }
@@ -67,8 +64,8 @@ fn custom_env_dir_is_used() {
 
 #[test]
 fn csv_rows_use_headers_as_variable_names() {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("src/infrastructure/testdata/usuarios.csv");
+    let path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("src/infrastructure/testdata/usuarios.csv");
     let rows = load_csv_rows(&path).unwrap();
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[0].get("id").map(String::as_str), Some("1"));

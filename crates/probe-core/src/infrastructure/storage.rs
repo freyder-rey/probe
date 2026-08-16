@@ -18,8 +18,12 @@ pub struct FileCollectionRepository {
 impl FileCollectionRepository {
     pub fn new() -> Result<Self> {
         let dir = collections_dir()?;
-        fs::create_dir_all(&dir)
-            .with_context(|| format!("no se pudo crear el directorio de colecciones: {}", dir.display()))?;
+        fs::create_dir_all(&dir).with_context(|| {
+            format!(
+                "no se pudo crear el directorio de colecciones: {}",
+                dir.display()
+            )
+        })?;
         Ok(FileCollectionRepository { dir })
     }
 
@@ -37,8 +41,7 @@ impl FileCollectionRepository {
     fn write_to(&self, path: &Path, collection: &Collection) -> Result<()> {
         let json = serde_json::to_string_pretty(collection)
             .context("no se pudo serializar la colección")?;
-        fs::write(path, json)
-            .with_context(|| format!("no se pudo escribir {}", path.display()))
+        fs::write(path, json).with_context(|| format!("no se pudo escribir {}", path.display()))
     }
 
     fn collection_path(&self, name: &str) -> PathBuf {
@@ -85,8 +88,7 @@ impl CollectionRepository for FileCollectionRepository {
 
     fn delete(&self, name: &str) -> Result<()> {
         let path = self.collection_path(name);
-        fs::remove_file(&path)
-            .with_context(|| format!("no se pudo eliminar {}", path.display()))
+        fs::remove_file(&path).with_context(|| format!("no se pudo eliminar {}", path.display()))
     }
 }
 

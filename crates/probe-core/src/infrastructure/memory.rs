@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    path::Path,
-    sync::Mutex,
-};
+use std::{collections::HashMap, path::Path, sync::Mutex};
 
 use anyhow::{bail, Result};
 

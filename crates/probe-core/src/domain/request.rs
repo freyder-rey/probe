@@ -38,8 +38,12 @@ pub struct KeyValue {
 pub enum Body {
     #[default]
     None,
-    Raw { content: String },
-    UrlEncoded { fields: Vec<KeyValue> },
+    Raw {
+        content: String,
+    },
+    UrlEncoded {
+        fields: Vec<KeyValue>,
+    },
 }
 
 fn default_true() -> bool {
