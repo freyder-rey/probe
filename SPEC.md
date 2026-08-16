@@ -128,8 +128,15 @@ Estos puntos se evalúan en etapas posteriores, a definir conforme avance el pro
 - Editor de solicitud: método (cualquier verbo), URL, query, headers, body
   (none/raw/urlencoded), timeout, seguir redirects y validaciones.
 - Visor de respuesta: status, tiempo, resultado de validaciones (✓/✗), headers
-  y cuerpo (JSON con formato).
+  y cuerpo (JSON con formato y resaltado, editor CodeMirror).
 - Listado de colecciones locales: cargar, crear, guardar y eliminar.
+- Progreso real-time de los tests por **SSE** (`/api/tests/{c}/{t}/events`):
+  la UI muestra `done/total` y el reporte sin polling.
+- Picker de **CSV** para los tests: el navegador sube el archivo a
+  `/api/csv`, el server lo guarda en `~/.probe/collections/csv/` y devuelve la
+  ruta que el runner lee (decisión D7).
+- Tests unitarios del frontend con **Vitest + Testing Library** (`npm --prefix
+  web run test`), incluidos en `make test`.
 - Es la misma app que Electron envolverá como cáscara de escritorio en una
   etapa posterior.
 
@@ -139,19 +146,22 @@ Estos puntos se evalúan en etapas posteriores, a definir conforme avance el pro
   (`requestNames`, vacío = todas) y las ejecuta en **secuencia** `iterations`
   veces, con un `delayMs` configurable entre solicitudes.
 - **Datos variables (CSV)**: el test puede apuntar a un archivo CSV local
-  (`csv: { type: "path", path: "…" }`). La primera fila define los nombres de
-  variables; cada fila siguiente define una ejecución del flujo (se **cicla** si
-  hay más iteraciones que filas). Las variables se interpolan en URL, query,
-  headers y body con la sintaxis `{{nombre}}` (decisión D5).
+  (`csv: { type: "path", path: "…" }`), escrito a mano en el CLI o **subido
+  desde la web** (`POST /api/csv` lo guarda en `~/.probe/collections/csv/` y
+  devuelve la ruta). La primera fila define los nombres de variables; cada fila
+  siguiente define una ejecución del flujo (se **cicla** si hay más iteraciones
+  que filas). Las variables se interpolan en URL, query, headers y body con la
+  sintaxis `{{nombre}}` (decisión D5).
 - Las **validaciones** de cada solicitud se evalúan en cada ejecución; una
   solicitud cuenta como fallida si alguna validación no pasa o hubo error de red.
 - **V1**: ejecución secuencial (una petición a la vez, con delays reales),
   sin pausa/reanudar; solo **detener**. El reporte se genera al final (o
-  parcial si se detuvo).
+  parcial si se detuvo). El progreso se publica en vivo por **SSE**
+  (`/api/tests/{c}/{t}/events`) y la web lo muestra sin polling (decisión D8).
 - **Reporte**: duración, total de solicitudes, OK/fallidas, tiempo promedio y
   p95, desglose por solicitud y primeros errores encontrados.
 - Superficies: CLI (`probe test list|run`), Web (panel de tests) y API
-  (`/api/tests/{collection}/{test}/start|status|stop`).
+  (`/api/tests/{collection}/{test}/start|status|stop|events`).
 
 ## 5. Arquitectura
 
@@ -177,8 +187,10 @@ Estos puntos se evalúan en etapas posteriores, a definir conforme avance el pro
 - **CLI**: crate binario que envuelve `probe-core`.
 - **Backend Web**: servidor `axum` que sirve la UI y expone la API de
   colecciones/requests. Comparte `probe-core`.
-- **Frontend Web**: app simple (HTML + JS) servida por el backend, que habla con
-  la API vía `fetch` en `localhost`.
+- **Frontend Web**: app **React + TypeScript (Vite)** compilada a
+  `crates/probe-server/static/dist/` y servida desde disco por axum (fallback al
+  frontend vanilla si no existe el build). Habla con la API vía `fetch`/`SSE` en
+  `localhost`.
 - **Electron** (etapa posterior): cáscara de escritorio que carga la misma UI
   web. No duplica código ni cambia el backend.
 
@@ -301,6 +313,13 @@ probe/
 - **D6 — Tests de carga**: v1 secuencial (una petición a la vez), sin
   concurrencia y sin pausa/reanudar; solo detener. El archivo CSV se guarda como
   ruta (`CsvSource::Path`) y se carga en memoria al ejecutar.
+- **D7 — CSV desde la web**: como el navegador no puede dar rutas locales al
+  server, la web sube el contenido del archivo a `POST /api/csv`; el server lo
+  guarda en `csv_dir()` (`~/.probe/collections/csv/`, override
+  `PROBE_COLLECTIONS_DIR`) y devuelve la ruta que el runner lee.
+- **D8 — Progreso real-time**: el server publica el estado de cada ejecución por
+  un canal `watch` (`RunState.progress`); la web lo consume por **SSE**
+  (`/api/tests/{c}/{t}/events`) en vez de polling.
 
 ## 10. Criterios de aceptación (etapa 1)
 
@@ -316,3 +335,6 @@ probe/
 - [ ] `probe test list|run` listan y ejecutan tests de carga con reporte.
 - [ ] Un test puede leer datos de un CSV e interpolar `{{variables}}`.
 - [ ] El test se puede detener (CLI con Ctrl+C, web con el botón detener).
+- [ ] La web muestra el progreso del test en vivo por SSE sin polling.
+- [ ] La web permite subir un CSV desde el navegador para un test.
+- [ ] Los tests del frontend (Vitest) y del backend (cargo) pasan con `make test`.

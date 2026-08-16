@@ -65,7 +65,7 @@ make dev                    # backend + frontend dev en paralelo (Ctrl+C detiene
 make server                 # solo el backend
 make web                    # solo el frontend dev (vite :5173)
 make build                  # compila el frontend React a static/dist/
-make test                   # tests Rust + lint frontend
+make test                   # tests Rust + tests y lint del frontend
 
 # Frontend React (web/)
 npm --prefix web install
@@ -192,5 +192,12 @@ modal de guardado.
    - Verificado: build, lint, 20 tests, clippy limpio, smoke end-to-end del SSE
      (progreso 1/20→20/20 + reporte, y stop en vivo con `stopped`) y de la
      subida de CSV vía API.
-6. **I — tests + docs** de la UI migrada. Export Markdown y Electron (roadmap).
+6. **I — tests + docs de la UI migrada (hecho)**: Vitest 4 + Testing Library en
+   `web/` (`npm --prefix web run test`; CodeMirror mockeado en
+   `src/test/setup.tsx` porque no funciona en jsdom). 23 tests: `types.ts`
+   (draft→LoadTest), `App` (api mockeado), `TestEditor`, `TestPanel` y
+   `ResponsePanel`. `make test` ahora corre Rust + vitest + lint. Docs
+   actualizadas: SPEC (RF-8/RF-9, decisiones D7/D8, criterios de aceptación),
+   docs/CLI.md (endpoints `events` y `csv`), web/README.md. Export Markdown y
+   Electron quedan en el roadmap.
 7. V2 posible de load tests: pausa/reanudar, más métricas en el reporte.

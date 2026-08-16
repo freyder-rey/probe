@@ -27,8 +27,9 @@ web: ## Solo el frontend dev (vite en :5173, proxya /api)
 build: ## Compila el frontend React a crates/probe-server/static/dist/
 	npm --prefix web run build
 
-test: ## Tests de Rust + lint del frontend
+test: ## Tests de Rust + tests y lint del frontend
 	cargo test --workspace
+	npm --prefix web run test
 	npm --prefix web run lint
 
 lint: ## Lint del frontend (oxlint)
