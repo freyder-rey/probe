@@ -78,11 +78,12 @@ jobs:
             } > changelog.txt
           fi
       - name: Subir changelog como artefacto
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: changelog
           path: changelog.txt
           if-no-files-found: error
+          overwrite: true
 
   build:
     needs: version
@@ -117,28 +118,30 @@ jobs:
         run: |
           exe=""
           [ "${{ matrix.os }}" = "windows-latest" ] && exe=".exe"
-          mkdir -p /tmp/out
-          cp "target/${{ matrix.target }}/release/probe$exe" "/tmp/out/probe-${{ matrix.suffix }}$exe"
-          cp "target/${{ matrix.target }}/release/probe-server$exe" "/tmp/out/probe-server-${{ matrix.suffix }}$exe"
-          ls -la /tmp/out
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/probe$exe" "dist/probe-${{ matrix.suffix }}$exe"
+          cp "target/${{ matrix.target }}/release/probe-server$exe" "dist/probe-server-${{ matrix.suffix }}$exe"
+          ls -la dist
       - name: Subir binarios como artefacto
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bin-${{ matrix.suffix }}
-          path: /tmp/out
+          path: dist
           if-no-files-found: error
+          overwrite: true
 
   release:
     needs: [version, build]
     runs-on: ubuntu-latest
     steps:
       - name: Descargar binarios
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
+          pattern: bin-*
           path: artifacts
           merge-multiple: true
       - name: Descargar changelog
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: changelog
           path: changelog
