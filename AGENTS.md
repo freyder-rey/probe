@@ -107,11 +107,36 @@ modal de guardado.
     reporte en `#test-panel`. `state.collectionCache` se invalida al guardar.
   - Docs (SPEC, CLI, AGENTS) y `.gitignore` actualizados.
 - `crates/test/` (CSVs de prueba del runner) está gitignoreado — no se sube.
-- Verificado: `cargo test --workspace` 19 OK, `clippy` sin warnings, smoke test
-  de la API (crear → start → status done → stop) OK.
+
+### Sesión posterior (PRs #4-#6)
+
+- **PR #4** (docs tras merge del #3) y **PR #5** (`fix/quick-wins`: verbo como
+  `<select>` + arreglo CSS de checkboxes, incluido el padding global que los
+  deformaba) mergeados → `develop`.
+- **PR #6 `refactor/core-dip` mergeado** → `develop`. Aplica **DIP** en el
+  núcleo:
+  - Puertos en `application/ports.rs`: `CollectionRepository`, `HttpExecutor`,
+    `CsvRowLoader`, `LoadTestRunner` (async vía `async-trait`).
+  - Infraestructura implementa los puertos: `Storage` → `FileCollectionRepository`,
+    `CsvLoader`, nuevo `InMemoryCollectionRepository` (tests).
+  - `Engine` impl `HttpExecutor`; `Runner` recibe `Arc<dyn>` inyectados (ya no
+    construye engine ni importa CSV de infraestructura) e impl `LoadTestRunner`.
+  - `CollectionSummary` → dominio, sin campo `path`.
+  - **Composition roots** en `main.rs` (server y CLI): construyen los concretos y
+    los inyectan. Handlers sin `Storage::new()`/`Runner::new()`. `RunRegistry`
+    encapsula el `Mutex<HashMap>` en `state.rs`.
+  - 20 tests OK, clippy sin warnings, smoke test API + CLI OK.
+- Pendiente conocido: **`cargo fmt` repo-wide** nunca se aplicó (no hay
+  rustfmt.toml); barrido ajeno al refactor → PR separado.
 
 ### Dónde vamos
 
-1. Roadmap pendiente: **export Markdown** y **Electron** (envolver la UI como
-   cáscara de escritorio, decisión D3).
-2. V2 posible de load tests: pausa/reanudar, más métricas en el reporte.
+1. **PR C — frontend React+Vite** (decisión: adoptar React ahora, no al llegar a
+   Electron; revisar D3 en SPEC). **Bloqueado por tooling: falta instalar Node.js**
+   (`sudo pacman -S nodejs npm` en CachyOS). El entorno de shell no permite sudo
+   interactivo; lo instala el dueño y retomamos.
+   Secuencia pendiente: C (scaffold) → D/E/F (migración por fases + CodeMirror)
+   → G (progreso real-time) → H (picker de CSV) → I (tests+docs).
+   Regla: no construir G/H sobre frontend vanilla si viene React.
+2. Export Markdown y Electron (roadmap).
+3. V2 posible de load tests: pausa/reanudar, más métricas en el reporte.
