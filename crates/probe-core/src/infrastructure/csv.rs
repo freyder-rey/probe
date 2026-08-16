@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    path::Path,
-};
+use std::{collections::HashMap, path::Path};
 
 use anyhow::{Context, Result};
 
@@ -22,8 +19,7 @@ pub fn load_csv_rows(path: &Path) -> Result<Vec<HashMap<String, String>>> {
 
     let mut rows = Vec::new();
     for record in reader.records() {
-        let record = record
-            .with_context(|| format!("CSV inválido en {}", path.display()))?;
+        let record = record.with_context(|| format!("CSV inválido en {}", path.display()))?;
         let mut row = HashMap::new();
         for (i, header) in headers.iter().enumerate() {
             if let Some(value) = record.get(i) {

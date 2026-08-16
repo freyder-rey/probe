@@ -6,9 +6,15 @@ use std::sync::{
 use axum::{
     extract::{Path, State},
     http::StatusCode,
+    response::{
+        sse::{Event, Sse},
+        IntoResponse,
+    },
     Json,
 };
+use futures_util::stream::Stream;
 use probe_core::{Collection, LoadTestReport};
+use std::convert::Infallible;
 
 use crate::state::{AppState, RunState, RunStatusResponse};
 
@@ -46,7 +52,10 @@ pub async fn list_collections(
         .list()
         .map_err(internal)?
         .into_iter()
-        .map(|c| CollectionSummary { name: c.name, size: c.size })
+        .map(|c| CollectionSummary {
+            name: c.name,
+            size: c.size,
+        })
         .collect();
     Ok(Json(collections))
 }
@@ -108,10 +117,10 @@ async fn run_test(
             &test,
             &collection.requests,
             Some(cancel),
-            Box::new(move |done, total| {
+            Box::new(move |progress| {
                 runs.update(&key, |run| {
-                    run.done = done;
-                    run.total = total;
+                    run.apply_progress(progress);
+                    run.notify();
                 });
             }),
         )
@@ -133,7 +142,9 @@ pub async fn test_start(
     }
 
     let cancel = Arc::new(AtomicBool::new(false));
-    state.runs.insert(key.clone(), RunState::running(cancel.clone()));
+    state
+        .runs
+        .insert(key.clone(), RunState::running(cancel.clone()));
 
     let collection = collection.clone();
     let test = test.clone();
@@ -141,26 +152,29 @@ pub async fn test_start(
     let state_for_run = state.clone();
     tokio::spawn(async move {
         let outcome = run_test(&collection, &test, &cancel, &state_for_run, &key_for_run).await;
-        state_for_run.runs.update(&key_for_run, |run| match outcome {
-            Ok(report) => {
-                run.report = Some(report);
-                run.status = if cancel.load(Ordering::Relaxed) {
-                    "stopped".to_string()
-                } else {
-                    "done".to_string()
-                };
+        state_for_run.runs.update(&key_for_run, |run| {
+            match outcome {
+                Ok(report) => {
+                    run.report = Some(report);
+                    run.status = if cancel.load(Ordering::Relaxed) {
+                        "stopped".to_string()
+                    } else {
+                        "done".to_string()
+                    };
+                }
+                Err(err) => {
+                    run.status = "error".to_string();
+                    run.error = Some(err.to_string());
+                }
             }
-            Err(err) => {
-                run.status = "error".to_string();
-                run.error = Some(err.to_string());
-            }
+            run.notify();
         });
     });
 
-    let run = state
-        .runs
-        .get(&key)
-        .ok_or((StatusCode::INTERNAL_SERVER_ERROR, "no se pudo iniciar el test".to_string()))?;
+    let run = state.runs.get(&key).ok_or((
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "no se pudo iniciar el test".to_string(),
+    ))?;
     Ok(Json(RunStatusResponse::from_run(&run)))
 }
 
@@ -169,10 +183,10 @@ pub async fn test_status(
     Path((collection, test)): Path<(String, String)>,
 ) -> Result<Json<RunStatusResponse>, (StatusCode, String)> {
     let key = test_key(&collection, &test);
-    let run = state
-        .runs
-        .get(&key)
-        .ok_or((StatusCode::NOT_FOUND, "no hay ejecución para este test".to_string()))?;
+    let run = state.runs.get(&key).ok_or((
+        StatusCode::NOT_FOUND,
+        "no hay ejecución para este test".to_string(),
+    ))?;
     Ok(Json(RunStatusResponse::from_run(&run)))
 }
 
@@ -182,7 +196,10 @@ pub async fn test_stop(
 ) -> Result<Json<RunStatusResponse>, (StatusCode, String)> {
     let key = test_key(&collection, &test);
     if state.runs.get(&key).is_none() {
-        return Err((StatusCode::NOT_FOUND, "no hay ejecución para este test".to_string()));
+        return Err((
+            StatusCode::NOT_FOUND,
+            "no hay ejecución para este test".to_string(),
+        ));
     }
     state.runs.update(&key, |run| {
         run.cancel.store(true, Ordering::Relaxed);
@@ -193,5 +210,99 @@ pub async fn test_stop(
         total: 0,
         report: None,
         error: None,
+        current_request: None,
+        per_request: Vec::new(),
+        last_event: None,
     }))
+}
+
+/// Stream SSE con el progreso en vivo de una ejecución. Cierra cuando el run
+/// ya no está `running` (done/stopped/error) y se agotan los cambios.
+pub async fn test_events(
+    State(state): State<AppState>,
+    Path((collection, test)): Path<(String, String)>,
+) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, (StatusCode, String)> {
+    let key = test_key(&collection, &test);
+    let run = state.runs.get(&key).ok_or((
+        StatusCode::NOT_FOUND,
+        "no hay ejecución para este test".to_string(),
+    ))?;
+    let mut rx = run.progress.subscribe();
+
+    let stream = async_stream::stream! {
+        loop {
+            let current = rx.borrow_and_update().clone();
+            if let Ok(event) = Event::default().json_data(&current) {
+                yield Ok(event);
+            }
+            if current.status != "running" {
+                break;
+            }
+            if rx.changed().await.is_err() {
+                break;
+            }
+        }
+    };
+    Ok(Sse::new(stream))
+}
+
+#[derive(serde::Deserialize)]
+pub struct UploadCsvBody {
+    pub name: String,
+    pub content: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct UploadCsvResponse {
+    pub path: String,
+}
+
+/// Guarda un CSV subido por el navegador en el directorio de datos y devuelve
+/// la ruta que el runner leerá (el navegador no puede dar rutas locales).
+pub async fn upload_csv(
+    Json(body): Json<UploadCsvBody>,
+) -> Result<Json<UploadCsvResponse>, (StatusCode, String)> {
+    let dir = probe_core::csv_dir().map_err(internal)?;
+    let name = sanitize_csv_name(&body.name);
+    let path = dir.join(format!("{name}.csv"));
+    std::fs::write(&path, body.content.as_bytes()).map_err(|e| internal(anyhow::anyhow!(e)))?;
+    Ok(Json(UploadCsvResponse {
+        path: path.to_string_lossy().into_owned(),
+    }))
+}
+
+fn sanitize_csv_name(name: &str) -> String {
+    let stem = name.strip_suffix(".csv").unwrap_or(name);
+    stem.chars()
+        .map(|c| match c {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+            _ => c,
+        })
+        .collect()
+}
+
+/// Devuelve la colección serializada a Markdown legible (formato D1).
+pub async fn collection_markdown(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let collection = state.repo.load(&name).map_err(|_| {
+        (
+            StatusCode::NOT_FOUND,
+            format!("colección \"{name}\" no encontrada"),
+        )
+    })?;
+    let md = probe_core::collection_to_markdown(&collection);
+    Ok(axum::http::Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            axum::http::header::CONTENT_TYPE,
+            "text/markdown; charset=utf-8",
+        )
+        .header(
+            axum::http::header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}.md\"", collection.name),
+        )
+        .body(md)
+        .unwrap())
 }

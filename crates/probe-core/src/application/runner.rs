@@ -10,14 +10,20 @@ use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use tokio::time::{sleep, Duration};
 
-use crate::domain::{Body, CsvSource, KeyValue, LoadTest, LoadTestReport, Request, RequestSummary};
+use crate::domain::{
+    Body, CsvSource, KeyValue, LoadTest, LoadTestReport, Request, RequestSummary, RunEvent,
+    RunProgress,
+};
 
-use super::{interpolation::interpolate, ports::CsvRowLoader, ports::HttpExecutor, ports::LoadTestRunner};
+use super::{
+    interpolation::interpolate, ports::CsvRowLoader, ports::HttpExecutor, ports::LoadTestRunner,
+};
 
 struct Sample {
     duration_ms: u128,
     passed: bool,
     error: Option<String>,
+    status: Option<u16>,
 }
 
 /// Ejecuta tests de carga en secuencia, respetando delays reales entre
@@ -40,16 +46,15 @@ impl Runner {
         on_progress: F,
     ) -> Result<LoadTestReport>
     where
-        F: Fn(u64, u64) + Send + Sync + 'static,
+        F: Fn(RunProgress) + Send + Sync + 'static,
     {
         let flow = self.select_flow(test, requests)?;
 
         let rows = match &test.csv {
             Some(CsvSource::Path { path }) => {
-                let rows = self
-                    .csv
-                    .load(std::path::Path::new(path))
-                    .with_context(|| format!("no se pudo cargar el CSV del test \"{}\"", test.name))?;
+                let rows = self.csv.load(std::path::Path::new(path)).with_context(|| {
+                    format!("no se pudo cargar el CSV del test \"{}\"", test.name)
+                })?;
                 if rows.is_empty() {
                     bail!("el CSV \"{path}\" no tiene filas de datos");
                 }
@@ -64,6 +69,12 @@ impl Runner {
         let mut samples: Vec<u128> = Vec::new();
         let mut errors: Vec<String> = Vec::new();
         let mut per_request: HashMap<String, RequestSummary> = HashMap::new();
+
+        let snapshot = |map: &HashMap<String, RequestSummary>| -> Vec<RequestSummary> {
+            let mut list: Vec<RequestSummary> = map.values().cloned().collect();
+            list.sort_by(|a, b| a.name.cmp(&b.name));
+            list
+        };
 
         let start = std::time::Instant::now();
 
@@ -82,37 +93,73 @@ impl Runner {
                     break 'outer;
                 }
 
+                on_progress(RunProgress {
+                    done: completed,
+                    total,
+                    current_request: Some(req.name.clone()),
+                    per_request: snapshot(&per_request),
+                    last_event: None,
+                });
+
                 let sample = match self.engine.execute(&interpolate_request(req, &vars)).await {
                     Ok(resp) => {
                         let passed = resp.validation_results.iter().all(|v| v.passed);
-                        Sample { duration_ms: resp.duration_ms, passed, error: None }
+                        Sample {
+                            duration_ms: resp.duration_ms,
+                            passed,
+                            error: None,
+                            status: Some(resp.status),
+                        }
                     }
-                    Err(err) => {
-                        Sample { duration_ms: 0, passed: false, error: Some(err.to_string()) }
-                    }
+                    Err(err) => Sample {
+                        duration_ms: 0,
+                        passed: false,
+                        error: Some(err.to_string()),
+                        status: None,
+                    },
                 };
 
                 completed += 1;
-                on_progress(completed, total);
                 samples.push(sample.duration_ms);
 
                 if sample.passed {
                     successes += 1;
                 } else if errors.len() < 20 {
-                    if let Some(e) = sample.error {
+                    if let Some(ref e) = sample.error {
                         errors.push(format!("{}: {e}", req.name));
                     }
                 }
 
-                let summary = per_request.entry(req.name.clone()).or_insert_with(|| {
-                    RequestSummary { name: req.name.clone(), total: 0, success: 0, failed: 0 }
-                });
+                let summary =
+                    per_request
+                        .entry(req.name.clone())
+                        .or_insert_with(|| RequestSummary {
+                            name: req.name.clone(),
+                            total: 0,
+                            success: 0,
+                            failed: 0,
+                        });
                 summary.total += 1;
                 if sample.passed {
                     summary.success += 1;
                 } else {
                     summary.failed += 1;
                 }
+
+                on_progress(RunProgress {
+                    done: completed,
+                    total,
+                    current_request: None,
+                    per_request: snapshot(&per_request),
+                    last_event: Some(RunEvent {
+                        request: req.name.clone(),
+                        iteration: i + 1,
+                        status: sample.status,
+                        ok: sample.passed,
+                        duration_ms: sample.duration_ms,
+                        error: sample.error.clone(),
+                    }),
+                });
 
                 if test.delay_ms > 0 && pos + 1 < flow.len() {
                     sleep(Duration::from_millis(test.delay_ms)).await;
@@ -147,22 +194,28 @@ impl Runner {
         })
     }
 
-    fn select_flow<'a>(&self, test: &LoadTest, requests: &'a [Request]) -> Result<Vec<&'a Request>> {
+    fn select_flow<'a>(
+        &self,
+        test: &LoadTest,
+        requests: &'a [Request],
+    ) -> Result<Vec<&'a Request>> {
         let flow: Vec<&'a Request> = if test.request_names.is_empty() {
             requests.iter().collect()
         } else {
             let mut selected = Vec::new();
             for name in &test.request_names {
-                let req = requests
-                    .iter()
-                    .find(|r| &r.name == name)
-                    .ok_or_else(|| anyhow::anyhow!("la solicitud \"{name}\" no existe en la colección"))?;
+                let req = requests.iter().find(|r| &r.name == name).ok_or_else(|| {
+                    anyhow::anyhow!("la solicitud \"{name}\" no existe en la colección")
+                })?;
                 selected.push(req);
             }
             selected
         };
         if flow.is_empty() {
-            bail!("el test \"{}\" no tiene solicitudes que ejecutar", test.name);
+            bail!(
+                "el test \"{}\" no tiene solicitudes que ejecutar",
+                test.name
+            );
         }
         Ok(flow)
     }
@@ -175,7 +228,7 @@ impl LoadTestRunner for Runner {
         test: &LoadTest,
         requests: &[Request],
         cancel: Option<&AtomicBool>,
-        on_progress: Box<dyn Fn(u64, u64) + Send + Sync>,
+        on_progress: Box<dyn Fn(RunProgress) + Send + Sync>,
     ) -> Result<LoadTestReport> {
         self.run(test, requests, cancel, on_progress).await
     }
@@ -197,7 +250,9 @@ fn interpolate_request(req: &Request, vars: &HashMap<String, String>) -> Request
     }
     out.body = match &req.body {
         Body::None => Body::None,
-        Body::Raw { content } => Body::Raw { content: interpolate(content, vars) },
+        Body::Raw { content } => Body::Raw {
+            content: interpolate(content, vars),
+        },
         Body::UrlEncoded { fields } => Body::UrlEncoded {
             fields: fields
                 .iter()
@@ -225,11 +280,7 @@ mod tests {
     use axum::{extract::Query, http::StatusCode, routing::get, Router};
 
     use super::*;
-    use crate::{
-        application::Engine,
-        domain::Validation,
-        infrastructure::CsvLoader,
-    };
+    use crate::{application::Engine, domain::Validation, infrastructure::CsvLoader};
 
     fn runner() -> Runner {
         Runner::new(Arc::new(Engine::new().unwrap()), Arc::new(CsvLoader))
@@ -237,10 +288,16 @@ mod tests {
 
     async fn spawn_echo_server() -> String {
         let app = Router::new()
-            .route("/echo", get(|Query(params): Query<HashMap<String, String>>| async move {
-                params.get("id").cloned().unwrap_or_default()
-            }))
-            .route("/error", get(|| async { StatusCode::INTERNAL_SERVER_ERROR }));
+            .route(
+                "/echo",
+                get(|Query(params): Query<HashMap<String, String>>| async move {
+                    params.get("id").cloned().unwrap_or_default()
+                }),
+            )
+            .route(
+                "/error",
+                get(|| async { StatusCode::INTERNAL_SERVER_ERROR }),
+            );
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -272,12 +329,18 @@ mod tests {
             request(
                 "ok",
                 format!("{base}/echo?id=1"),
-                vec![Validation::StatusEquals { name: "status".into(), expected: 200 }],
+                vec![Validation::StatusEquals {
+                    name: "status".into(),
+                    expected: 200,
+                }],
             ),
             request(
                 "bad",
                 format!("{base}/error"),
-                vec![Validation::StatusEquals { name: "status".into(), expected: 200 }],
+                vec![Validation::StatusEquals {
+                    name: "status".into(),
+                    expected: 200,
+                }],
             ),
         ];
         let test = LoadTest {
@@ -289,7 +352,7 @@ mod tests {
         };
 
         let runner = runner();
-        let report = runner.run(&test, &requests, None, |_, _| {}).await.unwrap();
+        let report = runner.run(&test, &requests, None, |_| {}).await.unwrap();
 
         assert_eq!(report.total_requests, 6);
         assert_eq!(report.success, 3);
@@ -309,18 +372,23 @@ mod tests {
         let requests = vec![request(
             "usuarios",
             format!("{base}/echo?id={{{{id}}}}"),
-            vec![Validation::BodyContains { name: "id1".into(), expected: "1".into() }],
+            vec![Validation::BodyContains {
+                name: "id1".into(),
+                expected: "1".into(),
+            }],
         )];
         let test = LoadTest {
             name: "csv test".to_string(),
             request_names: vec!["usuarios".to_string()],
             iterations: 4,
             delay_ms: 0,
-            csv: Some(CsvSource::Path { path: csv.to_string_lossy().into_owned() }),
+            csv: Some(CsvSource::Path {
+                path: csv.to_string_lossy().into_owned(),
+            }),
         };
 
         let runner = runner();
-        let report = runner.run(&test, &requests, None, |_, _| {}).await.unwrap();
+        let report = runner.run(&test, &requests, None, |_| {}).await.unwrap();
 
         // Filas: (1,ana),(2,leo) -> cicladas 4 veces: 1,2,1,2.
         // El body del echo es el id: "1" contiene "1" (pasa), "2" no (falla).
@@ -344,7 +412,10 @@ mod tests {
         let cancel = std::sync::atomic::AtomicBool::new(false);
         cancel.store(true, std::sync::atomic::Ordering::Relaxed);
         let runner = runner();
-        let report = runner.run(&test, &requests, Some(&cancel), |_, _| {}).await.unwrap();
+        let report = runner
+            .run(&test, &requests, Some(&cancel), |_| {})
+            .await
+            .unwrap();
 
         assert_eq!(report.total_requests, 0);
     }
@@ -362,5 +433,61 @@ mod tests {
         let runner = runner();
         let result = runner.select_flow(&test, &requests);
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn progress_emits_last_event_with_status() {
+        let base = spawn_echo_server().await;
+        let requests = vec![
+            request(
+                "ok",
+                format!("{base}/echo?id=1"),
+                vec![Validation::StatusEquals {
+                    name: "status".into(),
+                    expected: 200,
+                }],
+            ),
+            request(
+                "bad",
+                format!("{base}/error"),
+                vec![Validation::StatusEquals {
+                    name: "status".into(),
+                    expected: 200,
+                }],
+            ),
+        ];
+        let test = LoadTest {
+            name: "eventos".to_string(),
+            request_names: vec![],
+            iterations: 2,
+            delay_ms: 0,
+            csv: None,
+        };
+
+        let runner = runner();
+        let events: Arc<std::sync::Mutex<Vec<crate::domain::RunEvent>>> =
+            Arc::new(std::sync::Mutex::new(Vec::new()));
+        let collected = events.clone();
+        runner
+            .run(&test, &requests, None, move |p| {
+                if let Some(e) = p.last_event {
+                    if let Ok(mut list) = collected.lock() {
+                        list.push(e);
+                    }
+                }
+            })
+            .await
+            .unwrap();
+
+        let events = events.lock().unwrap();
+        assert_eq!(events.len(), 4);
+        assert_eq!(events[0].request, "ok");
+        assert_eq!(events[0].status, Some(200));
+        assert!(events[0].ok);
+        assert_eq!(events[1].request, "bad");
+        assert_eq!(events[1].status, Some(500));
+        assert!(!events[1].ok);
+        assert_eq!(events[2].iteration, 2);
+        assert_eq!(events[3].request, "bad");
     }
 }

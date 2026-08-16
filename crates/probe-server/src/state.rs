@@ -3,7 +3,11 @@ use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
-use probe_core::{CollectionRepository, HttpExecutor, LoadTestReport, LoadTestRunner};
+use probe_core::{
+    CollectionRepository, HttpExecutor, LoadTestReport, LoadTestRunner, RequestSummary, RunEvent,
+    RunProgress,
+};
+use tokio::sync::watch;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -57,10 +61,28 @@ pub struct RunState {
     pub cancel: Arc<AtomicBool>,
     pub report: Option<LoadTestReport>,
     pub error: Option<String>,
+    /// Solicitud que se está ejecutando ahora (progreso real-time).
+    pub current_request: Option<String>,
+    /// Acumulado por solicitud en vivo (progreso real-time).
+    pub per_request: Vec<RequestSummary>,
+    /// Última ejecución completada (log en vivo).
+    pub last_event: Option<RunEvent>,
+    /// Notifica cambios de progreso a los suscriptores SSE (último valor).
+    pub progress: watch::Sender<RunStatusResponse>,
 }
 
 impl RunState {
     pub fn running(cancel: Arc<AtomicBool>) -> Self {
+        let (progress, _) = watch::channel(RunStatusResponse {
+            status: "running".to_string(),
+            done: 0,
+            total: 0,
+            report: None,
+            error: None,
+            current_request: None,
+            per_request: Vec::new(),
+            last_event: None,
+        });
         RunState {
             status: "running".to_string(),
             done: 0,
@@ -68,11 +90,31 @@ impl RunState {
             cancel,
             report: None,
             error: None,
+            current_request: None,
+            per_request: Vec::new(),
+            last_event: None,
+            progress,
         }
+    }
+
+    /// Actualiza el estado de progreso desde un evento del runner.
+    pub fn apply_progress(&mut self, progress: RunProgress) {
+        self.done = progress.done;
+        self.total = progress.total;
+        self.current_request = progress.current_request;
+        self.per_request = progress.per_request;
+        if let Some(event) = progress.last_event {
+            self.last_event = Some(event);
+        }
+    }
+
+    /// Emite el estado actual por el canal de progreso (SSE).
+    pub fn notify(&self) {
+        let _ = self.progress.send(RunStatusResponse::from_run(self));
     }
 }
 
-#[derive(serde::Serialize)]
+#[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunStatusResponse {
     pub status: String,
@@ -80,6 +122,9 @@ pub struct RunStatusResponse {
     pub total: u64,
     pub report: Option<LoadTestReport>,
     pub error: Option<String>,
+    pub current_request: Option<String>,
+    pub per_request: Vec<RequestSummary>,
+    pub last_event: Option<RunEvent>,
 }
 
 impl RunStatusResponse {
@@ -90,6 +135,9 @@ impl RunStatusResponse {
             total: run.total,
             report: run.report.clone(),
             error: run.error.clone(),
+            current_request: run.current_request.clone(),
+            per_request: run.per_request.clone(),
+            last_event: run.last_event.clone(),
         }
     }
 }

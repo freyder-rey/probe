@@ -9,8 +9,8 @@ use clap::Parser;
 
 use args::{Cli, Command};
 use probe_core::{
-    CollectionRepository, CsvLoader, CsvRowLoader, Engine, FileCollectionRepository,
-    HttpExecutor, LoadTestRunner, Runner,
+    CollectionRepository, CsvLoader, CsvRowLoader, Engine, FileCollectionRepository, HttpExecutor,
+    LoadTestRunner, Runner,
 };
 
 #[tokio::main]

@@ -50,6 +50,40 @@ pub struct RequestSummary {
     pub failed: u64,
 }
 
+/// Resultado de una ejecución individual (una solicitud × una iteración/CSV row).
+/// Lo emite el runner en cada `RunProgress` para construir el log en vivo.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunEvent {
+    pub request: String,
+    /// Iteración 1-based en la que se ejecutó la solicitud.
+    pub iteration: u64,
+    /// Status HTTP real de la respuesta (None si hubo error de red/parseo).
+    pub status: Option<u16>,
+    /// true si pasó (sin validaciones fallidas y sin error de red).
+    pub ok: bool,
+    pub duration_ms: u128,
+    /// Mensaje de error de red/parseo, si lo hubo.
+    pub error: Option<String>,
+}
+
+/// Progreso en vivo de una ejecución: qué se ejecutó, qué se está ejecutando
+/// ahora y el acumulado por solicitud. Lo emite el runner vía `on_progress` y
+/// lo consume el servidor para el SSE (progreso real-time en la web).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunProgress {
+    /// Solicitudes completadas (siguiente índice a ejecutar).
+    pub done: u64,
+    pub total: u64,
+    /// Solicitud que se está ejecutando en este momento (si hay una).
+    pub current_request: Option<String>,
+    /// Acumulado por solicitud hasta el momento.
+    pub per_request: Vec<RequestSummary>,
+    /// Última ejecución completada (para el log en vivo secuencial).
+    pub last_event: Option<RunEvent>,
+}
+
 fn default_iterations() -> u64 {
     1
 }

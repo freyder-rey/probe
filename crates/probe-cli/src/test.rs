@@ -4,7 +4,7 @@ use std::sync::{
     Arc,
 };
 
-use probe_core::{Collection, CollectionRepository, LoadTestReport, LoadTestRunner};
+use probe_core::{Collection, CollectionRepository, LoadTestReport, LoadTestRunner, RunProgress};
 
 use crate::args::{TestArgs, TestCommand};
 
@@ -15,8 +15,21 @@ pub async fn test(
 ) -> anyhow::Result<()> {
     match args.command {
         TestCommand::List { collection } => list(repo.as_ref(), &collection),
-        TestCommand::Run { collection, test, iterations, delay } => {
-            run(repo.as_ref(), runner.as_ref(), &collection, &test, iterations, delay).await
+        TestCommand::Run {
+            collection,
+            test,
+            iterations,
+            delay,
+        } => {
+            run(
+                repo.as_ref(),
+                runner.as_ref(),
+                &collection,
+                &test,
+                iterations,
+                delay,
+            )
+            .await
         }
     }
 }
@@ -32,7 +45,10 @@ fn load_collection(repo: &dyn CollectionRepository, target: &str) -> anyhow::Res
 fn list(repo: &dyn CollectionRepository, target: &str) -> anyhow::Result<()> {
     let collection = load_collection(repo, target)?;
     if collection.tests.is_empty() {
-        println!("La colección \"{}\" no tiene tests definidos.", collection.name);
+        println!(
+            "La colección \"{}\" no tiene tests definidos.",
+            collection.name
+        );
         return Ok(());
     }
     println!("Tests de \"{}\":", collection.name);
@@ -89,9 +105,21 @@ async fn run(
             &test,
             &collection.requests,
             Some(&cancel),
-            Box::new(|done, total| {
-                if total == 0 || done == total || done % 25 == 0 {
-                    println!("  {done} de {total} solicitudes");
+            Box::new(|progress: RunProgress| {
+                if progress.total == 0
+                    || progress.done == progress.total
+                    || progress.done.is_multiple_of(25)
+                {
+                    println!(
+                        "  {}/{} solicitudes{}",
+                        progress.done,
+                        progress.total,
+                        progress
+                            .current_request
+                            .as_deref()
+                            .map(|r| format!(" — {r}"))
+                            .unwrap_or_default(),
+                    );
                 }
             }),
         )
@@ -102,9 +130,16 @@ async fn run(
 }
 
 fn print_report(report: &LoadTestReport) {
-    let resultado = if report.failed == 0 { "PASÓ" } else { "FALLÓ" };
+    let resultado = if report.failed == 0 {
+        "PASÓ"
+    } else {
+        "FALLÓ"
+    };
     println!();
-    println!("== Reporte del test \"{}\" ({resultado}) ==", report.test_name);
+    println!(
+        "== Reporte del test \"{}\" ({resultado}) ==",
+        report.test_name
+    );
     println!("  Duración: {} ms", report.duration_ms);
     println!(
         "  Solicitudes: {} total, {} OK, {} fallidas",

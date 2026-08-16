@@ -414,9 +414,12 @@ cargo run -p probe-server
 | POST   | `/api/collections`          | guarda una colección (body = colección JSON) |
 | GET    | `/api/collections/{name}`   | carga una colección por nombre               |
 | DELETE | `/api/collections/{name}`   | elimina una colección                        |
+| GET    | `/api/collections/{name}/markdown` | exporta la colección a Markdown (`text/markdown`, plantilla D1) |
 | POST   | `/api/tests/{c}/{t}/start`  | inicia un test en segundo plano              |
 | GET    | `/api/tests/{c}/{t}/status` | estado y reporte de la ejecución             |
 | POST   | `/api/tests/{c}/{t}/stop`   | detiene una ejecución en curso               |
+| GET    | `/api/tests/{c}/{t}/events` | **SSE** con el progreso en vivo hasta el final (trae `done`/`total`, `currentRequest`, `perRequest` y `lastEvent` con el status HTTP real de cada ejecución) |
+| POST   | `/api/csv`                  | sube un CSV (`{name, content}`) y devuelve `{path}` |
 
 ### Ejemplo: ejecutar una solicitud
 
