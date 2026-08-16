@@ -46,14 +46,18 @@ impl Engine {
         let method = Method::from_bytes(req.method.as_bytes())
             .context(format!("verbo HTTP inválido: {}", req.method))?;
 
-        let mut url = reqwest::Url::parse(&req.url)
-            .context(format!("URL inválida: {}", req.url))?;
+        let mut url =
+            reqwest::Url::parse(&req.url).context(format!("URL inválida: {}", req.url))?;
 
         for kv in req.query.iter().filter(|kv| kv.enabled) {
             url.query_pairs_mut().append_pair(&kv.key, &kv.value);
         }
 
-        let client = if req.follow_redirects { &self.follow } else { &self.no_follow };
+        let client = if req.follow_redirects {
+            &self.follow
+        } else {
+            &self.no_follow
+        };
         let mut builder = client
             .request(method, url.clone())
             .timeout(std::time::Duration::from_secs(req.timeout_secs));
@@ -76,10 +80,7 @@ impl Engine {
         };
 
         let start = Instant::now();
-        let response = builder
-            .send()
-            .await
-            .context("la solicitud falló")?;
+        let response = builder.send().await.context("la solicitud falló")?;
         let duration_ms = start.elapsed().as_millis();
 
         let status = response.status();
@@ -92,10 +93,7 @@ impl Engine {
             .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
             .collect();
 
-        let body = response
-            .text()
-            .await
-            .ok();
+        let body = response.text().await.ok();
 
         let mut result = Response {
             status: status.as_u16(),

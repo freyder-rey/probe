@@ -139,21 +139,43 @@ pub fn parse_validation(s: &str) -> Result<Validation, String> {
             let header = header.to_string();
             let expected = expected.to_string();
             if kind == "header_equals" {
-                Ok(Validation::HeaderEquals { name, header, expected })
+                Ok(Validation::HeaderEquals {
+                    name,
+                    header,
+                    expected,
+                })
             } else {
-                Ok(Validation::HeaderContains { name, header, expected })
+                Ok(Validation::HeaderContains {
+                    name,
+                    header,
+                    expected,
+                })
             }
         }
-        "body_contains" => Ok(Validation::BodyContains { name, expected: rest.to_string() }),
-        "body_equals" => Ok(Validation::BodyEquals { name, expected: rest.to_string() }),
+        "body_contains" => Ok(Validation::BodyContains {
+            name,
+            expected: rest.to_string(),
+        }),
+        "body_equals" => Ok(Validation::BodyEquals {
+            name,
+            expected: rest.to_string(),
+        }),
         "json_equals" => {
             let (path, raw) = rest
                 .split_once(':')
                 .ok_or("json_equals: formato `json_equals:ruta:valor`")?;
-            let expected = serde_json::from_str(raw).unwrap_or(serde_json::Value::String(raw.to_string()));
-            Ok(Validation::JsonEquals { name, path: path.to_string(), expected })
+            let expected =
+                serde_json::from_str(raw).unwrap_or(serde_json::Value::String(raw.to_string()));
+            Ok(Validation::JsonEquals {
+                name,
+                path: path.to_string(),
+                expected,
+            })
         }
-        "json_exists" => Ok(Validation::JsonExists { name, path: rest.to_string() }),
+        "json_exists" => Ok(Validation::JsonExists {
+            name,
+            path: rest.to_string(),
+        }),
         "duration_lt" => {
             let max_ms = rest
                 .parse::<u64>()

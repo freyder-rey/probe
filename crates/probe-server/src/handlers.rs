@@ -49,7 +49,10 @@ pub async fn list_collections(
         .list()
         .map_err(internal)?
         .into_iter()
-        .map(|c| CollectionSummary { name: c.name, size: c.size })
+        .map(|c| CollectionSummary {
+            name: c.name,
+            size: c.size,
+        })
         .collect();
     Ok(Json(collections))
 }
@@ -137,7 +140,9 @@ pub async fn test_start(
     }
 
     let cancel = Arc::new(AtomicBool::new(false));
-    state.runs.insert(key.clone(), RunState::running(cancel.clone()));
+    state
+        .runs
+        .insert(key.clone(), RunState::running(cancel.clone()));
 
     let collection = collection.clone();
     let test = test.clone();
@@ -164,10 +169,10 @@ pub async fn test_start(
         });
     });
 
-    let run = state
-        .runs
-        .get(&key)
-        .ok_or((StatusCode::INTERNAL_SERVER_ERROR, "no se pudo iniciar el test".to_string()))?;
+    let run = state.runs.get(&key).ok_or((
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "no se pudo iniciar el test".to_string(),
+    ))?;
     Ok(Json(RunStatusResponse::from_run(&run)))
 }
 
@@ -176,10 +181,10 @@ pub async fn test_status(
     Path((collection, test)): Path<(String, String)>,
 ) -> Result<Json<RunStatusResponse>, (StatusCode, String)> {
     let key = test_key(&collection, &test);
-    let run = state
-        .runs
-        .get(&key)
-        .ok_or((StatusCode::NOT_FOUND, "no hay ejecución para este test".to_string()))?;
+    let run = state.runs.get(&key).ok_or((
+        StatusCode::NOT_FOUND,
+        "no hay ejecución para este test".to_string(),
+    ))?;
     Ok(Json(RunStatusResponse::from_run(&run)))
 }
 
@@ -189,7 +194,10 @@ pub async fn test_stop(
 ) -> Result<Json<RunStatusResponse>, (StatusCode, String)> {
     let key = test_key(&collection, &test);
     if state.runs.get(&key).is_none() {
-        return Err((StatusCode::NOT_FOUND, "no hay ejecución para este test".to_string()));
+        return Err((
+            StatusCode::NOT_FOUND,
+            "no hay ejecución para este test".to_string(),
+        ));
     }
     state.runs.update(&key, |run| {
         run.cancel.store(true, Ordering::Relaxed);
@@ -210,10 +218,10 @@ pub async fn test_events(
     Path((collection, test)): Path<(String, String)>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, (StatusCode, String)> {
     let key = test_key(&collection, &test);
-    let run = state
-        .runs
-        .get(&key)
-        .ok_or((StatusCode::NOT_FOUND, "no hay ejecución para este test".to_string()))?;
+    let run = state.runs.get(&key).ok_or((
+        StatusCode::NOT_FOUND,
+        "no hay ejecución para este test".to_string(),
+    ))?;
     let mut rx = run.progress.subscribe();
 
     let stream = async_stream::stream! {
@@ -252,8 +260,7 @@ pub async fn upload_csv(
     let dir = probe_core::csv_dir().map_err(internal)?;
     let name = sanitize_csv_name(&body.name);
     let path = dir.join(format!("{name}.csv"));
-    std::fs::write(&path, body.content.as_bytes())
-        .map_err(|e| internal(anyhow::anyhow!(e)))?;
+    std::fs::write(&path, body.content.as_bytes()).map_err(|e| internal(anyhow::anyhow!(e)))?;
     Ok(Json(UploadCsvResponse {
         path: path.to_string_lossy().into_owned(),
     }))

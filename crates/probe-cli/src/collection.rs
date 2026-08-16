@@ -10,7 +10,10 @@ pub fn collection(
         CollectionCommand::List => {
             let collections = storage.list()?;
             if collections.is_empty() {
-                println!("No hay colecciones guardadas en {}", storage.dir().display());
+                println!(
+                    "No hay colecciones guardadas en {}",
+                    storage.dir().display()
+                );
                 return Ok(());
             }
             println!("Colecciones en {}:", storage.dir().display());
@@ -21,7 +24,11 @@ pub fn collection(
         CollectionCommand::Save { path } => {
             let collection = storage.load_file(&path)?;
             let saved = storage.save_path(&collection)?;
-            println!("Colección \"{}\" guardada en {}", collection.name, saved.display());
+            println!(
+                "Colección \"{}\" guardada en {}",
+                collection.name,
+                saved.display()
+            );
         }
         CollectionCommand::New { name } => {
             let collection = Collection {

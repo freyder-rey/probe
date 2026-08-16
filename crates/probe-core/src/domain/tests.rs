@@ -9,7 +9,9 @@ fn request_serializes_to_camel_case() {
         url: "https://api.example.com/users".to_string(),
         query: vec![KeyValue::new("limit", "10")],
         headers: vec![],
-        body: Body::Raw { content: "{}".to_string() },
+        body: Body::Raw {
+            content: "{}".to_string(),
+        },
         timeout_secs: 30,
         follow_redirects: true,
         validations: vec![],
@@ -28,7 +30,10 @@ fn body_roundtrip() {
         fields: vec![KeyValue::new("a", "1")],
     };
     let json = serde_json::to_string(&body).unwrap();
-    assert_eq!(json, r#"{"type":"urlencoded","fields":[{"key":"a","value":"1","enabled":true}]}"#);
+    assert_eq!(
+        json,
+        r#"{"type":"urlencoded","fields":[{"key":"a","value":"1","enabled":true}]}"#
+    );
     let back: Body = serde_json::from_str(&json).unwrap();
     assert!(matches!(back, Body::UrlEncoded { .. }));
 }
@@ -86,7 +91,9 @@ fn load_test_serializes_camel_case() {
 
 #[test]
 fn csv_source_roundtrip() {
-    let source = CsvSource::Path { path: "/tmp/data.csv".to_string() };
+    let source = CsvSource::Path {
+        path: "/tmp/data.csv".to_string(),
+    };
     let json = serde_json::to_string(&source).unwrap();
     assert_eq!(json, r#"{"type":"path","path":"/tmp/data.csv"}"#);
     let back: CsvSource = serde_json::from_str(&json).unwrap();

@@ -21,7 +21,9 @@ pub async fn run(
                 .requests
                 .into_iter()
                 .find(|r| r.name == name)
-                .ok_or_else(|| anyhow::anyhow!("solicitud \"{name}\" no encontrada en \"{target}\""))?
+                .ok_or_else(|| {
+                    anyhow::anyhow!("solicitud \"{name}\" no encontrada en \"{target}\"")
+                })?
         }
         _ => build_inline_request(args)?,
     };
@@ -32,10 +34,7 @@ pub async fn run(
 }
 
 fn build_inline_request(args: RunArgs) -> anyhow::Result<Request> {
-    let url = args
-        .target
-        .clone()
-        .unwrap_or_default();
+    let url = args.target.clone().unwrap_or_default();
     if url.is_empty() {
         anyhow::bail!("se requiere --url o <colección> --name <solicitud>");
     }
@@ -44,11 +43,7 @@ fn build_inline_request(args: RunArgs) -> anyhow::Result<Request> {
         Body::Raw { content }
     } else if !args.form.is_empty() {
         Body::UrlEncoded {
-            fields: args
-                .form
-                .iter()
-                .map(|(k, v)| KeyValue::new(k, v))
-                .collect(),
+            fields: args.form.iter().map(|(k, v)| KeyValue::new(k, v)).collect(),
         }
     } else {
         Body::None

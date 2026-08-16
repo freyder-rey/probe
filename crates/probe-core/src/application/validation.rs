@@ -13,7 +13,9 @@ fn evaluate(v: &Validation, response: &Response) -> ValidationResult {
                 format!("status esperado {expected}, obtenido {actual}"),
             )
         }
-        Validation::HeaderEquals { header, expected, .. } => {
+        Validation::HeaderEquals {
+            header, expected, ..
+        } => {
             let actual = find_header(response, header);
             match actual {
                 Some(value) => (
@@ -23,7 +25,9 @@ fn evaluate(v: &Validation, response: &Response) -> ValidationResult {
                 None => (false, format!("header \"{header}\" no presente")),
             }
         }
-        Validation::HeaderContains { header, expected, .. } => {
+        Validation::HeaderContains {
+            header, expected, ..
+        } => {
             let actual = find_header(response, header);
             match actual {
                 Some(value) => (
@@ -70,9 +74,7 @@ fn evaluate(v: &Validation, response: &Response) -> ValidationResult {
                         let eq = actual == expected;
                         (
                             eq,
-                            format!(
-                                "la ruta \"{path}\" esperada {expected}, obtenida {actual}"
-                            ),
+                            format!("la ruta \"{path}\" esperada {expected}, obtenida {actual}"),
                         )
                     }
                     None => (false, format!("la ruta \"{path}\" no existe")),
@@ -101,7 +103,11 @@ fn evaluate(v: &Validation, response: &Response) -> ValidationResult {
         | Validation::DurationLt { name, .. } => name.clone(),
     };
 
-    ValidationResult { name, passed, detail }
+    ValidationResult {
+        name,
+        passed,
+        detail,
+    }
 }
 
 fn find_header(response: &Response, key: &str) -> Option<String> {
@@ -112,7 +118,10 @@ fn find_header(response: &Response, key: &str) -> Option<String> {
         .map(|(_, v)| v.clone())
 }
 
-pub(crate) fn resolve_path<'a>(json: &'a serde_json::Value, path: &str) -> Option<&'a serde_json::Value> {
+pub(crate) fn resolve_path<'a>(
+    json: &'a serde_json::Value,
+    path: &str,
+) -> Option<&'a serde_json::Value> {
     let mut current = json;
     let path = path.strip_prefix('$').unwrap_or(path);
 
