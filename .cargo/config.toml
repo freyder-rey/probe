@@ -1,0 +1,5 @@
+# En Arch/CachyOS el gcc no expone el prefijo triple x86_64-linux-gnu-,
+# así que rustc no encuentra `x86_64-linux-gnu-gcc`. `cc` es el symlink
+# genérico a gcc presente en cualquier distro con toolchain C.
+[target.x86_64-unknown-linux-gnu]
+linker = "cc"

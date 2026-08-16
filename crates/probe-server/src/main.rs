@@ -1,7 +1,10 @@
 mod handlers;
 mod state;
 
-use std::sync::Arc;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use axum::{
     http::header,
@@ -10,15 +13,20 @@ use axum::{
     Router,
 };
 use probe_core::{
-    CollectionRepository, CsvLoader, CsvRowLoader, Engine, FileCollectionRepository,
-    HttpExecutor, LoadTestRunner, Runner,
+    CollectionRepository, CsvLoader, CsvRowLoader, Engine, FileCollectionRepository, HttpExecutor,
+    LoadTestRunner, Runner,
 };
+use tower_http::services::{ServeDir, ServeFile};
 
 use handlers::{
     delete_collection, execute, list_collections, load_collection, save_collection, test_start,
     test_status, test_stop,
 };
 use state::{AppState, RunRegistry};
+
+/// Directorio con el build de Vite (frontend React). Si no existe, se sirve el
+/// frontend vanilla de `static/` como fallback.
+const DIST_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/static/dist");
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -29,12 +37,12 @@ async fn main() -> anyhow::Result<()> {
     let csv: Arc<dyn CsvRowLoader> = Arc::new(CsvLoader);
     let runner: Arc<dyn LoadTestRunner> = Arc::new(Runner::new(engine.clone(), csv));
 
-    let app = Router::new()
-        .route("/", get(index))
-        .route("/style.css", get(style))
-        .route("/app.js", get(app_js))
+    let api = Router::new()
         .route("/api/execute", post(execute))
-        .route("/api/collections", get(list_collections).post(save_collection))
+        .route(
+            "/api/collections",
+            get(list_collections).post(save_collection),
+        )
         .route(
             "/api/collections/{name}",
             get(load_collection).delete(delete_collection),
@@ -48,6 +56,19 @@ async fn main() -> anyhow::Result<()> {
             runner,
             runs: RunRegistry::new(),
         });
+
+    let app = if Path::new(DIST_DIR).join("index.html").is_file() {
+        // Frontend React build: sirve los assets desde disco y cae en
+        // index.html para rutas no encontradas (SPA).
+        let serve = ServeDir::new(DIST_DIR)
+            .not_found_service(ServeFile::new(PathBuf::from(DIST_DIR).join("index.html")));
+        api.fallback_service(serve)
+    } else {
+        // Frontend vanilla (sin build de Vite): se embebe con include_str!.
+        api.route("/", get(index))
+            .route("/style.css", get(style))
+            .route("/app.js", get(app_js))
+    };
 
     let addr = "127.0.0.1:7878";
     println!("probe server escuchando en http://{addr}");
@@ -70,7 +91,10 @@ async fn style() -> Response {
 
 async fn app_js() -> Response {
     (
-        [(header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+        [(
+            header::CONTENT_TYPE,
+            "application/javascript; charset=utf-8",
+        )],
         include_str!("../static/app.js"),
     )
         .into_response()

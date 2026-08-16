@@ -1,3 +1,8 @@
 /target
 /crates/test/
 notas.txt
+
+# Frontend React (Vite) — build generado, no se versiona
+/crates/probe-server/static/dist/
+/web/node_modules/
+/web/dist/

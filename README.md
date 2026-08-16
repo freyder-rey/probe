@@ -16,7 +16,8 @@ s
   - `probe-core` — motor HTTP (`reqwest`) + modelo + almacenamiento
   - `probe-cli` — interfaz de terminal
   - `probe-server` — backend web (`axum`) que sirve la interfaz
-- Web: HTML + JS (sin build step), envuelta en Electron en una etapa posterior.
+- Web: React + TypeScript + Vite (en `web/`), que Electron envolverá como
+  cáscara de escritorio en una etapa posterior.
 
 ## Uso rápido
 
@@ -30,7 +31,17 @@ cargo run -p probe-cli -- run https://httpbin.org/json \
   --validate "json_exists:$.slideshow.title"
 
 # Interfaz web (abrir http://127.0.0.1:7878)
+npm --prefix web run build   # compila el frontend React a static/dist/
 cargo run -p probe-server
+```
+
+Si no existe el build (`crates/probe-server/static/dist/`), el server sirve el
+frontend vanilla de `static/` como fallback. Durante desarrollo de la UI se
+puede usar el dev server de Vite con proxy a la API:
+
+```sh
+cargo run -p probe-server &   # API en :7878
+npm --prefix web run dev      # UI en :5173 (proxya /api a :7878)
 ```
 
 Las colecciones se guardan en `~/.probe/collections/` (por usuario, configurable
