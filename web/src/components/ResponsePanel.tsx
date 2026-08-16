@@ -19,28 +19,24 @@ export function ResponsePanel({ response, error }: Props) {
 
   if (error) {
     return (
-      <section id="response" aria-label="Respuesta">
-        <div className="resp-empty">
-          <div id="resp-error">{error}</div>
-        </div>
-      </section>
+      <div className="resp-empty">
+        <div id="resp-error">{error}</div>
+      </div>
     )
   }
 
   if (!response) {
     return (
-      <section id="response" aria-label="Respuesta">
-        <div className="resp-empty">
-          <p>Envía una solicitud para ver la respuesta.</p>
-        </div>
-      </section>
+      <div className="resp-empty">
+        <p>Envía una solicitud para ver la respuesta.</p>
+      </div>
     )
   }
 
   const passed = response.validationResults.filter((v) => v.passed).length
 
   return (
-    <section id="response" aria-label="Respuesta">
+    <>
       <div id="resp-summary">
         <span
           id="resp-status"
@@ -92,6 +88,6 @@ export function ResponsePanel({ response, error }: Props) {
           ))}
         </div>
       )}
-    </section>
+    </>
   )
 }

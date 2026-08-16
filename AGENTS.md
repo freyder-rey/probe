@@ -152,18 +152,27 @@ modal de guardado.
 
 ### Dónde vamos
 
-1. **PR C (este) — frontend React+Vite**: scaffold en `web/` (React 19 + Vite 8 +
+1. **PR C — frontend React+Vite**: scaffold en `web/` (React 19 + Vite 8 +
    TS 6 + oxlint), tipos TS que reflejan el JSON serde, cliente API, shell con
    sidebar de colecciones + editor de solicitud + panel de respuesta. Build →
    `crates/probe-server/static/dist/` (gitignored), servido desde disco por el
    server con fallback al frontend vanilla y SPA fallback a index.html. Dev con
    Vite :5173 proxando `/api` a :7878. `.cargo/config.toml` fija el linker `cc`.
    Verificado: build, clippy, 20 tests, smoke API + web + fallback vanilla.
-2. **D/E/F — migración por fases + CodeMirror**: completar la paridad del editor
-   React (validaciones por kind, body urlencoded, modal de guardado con
-   colección destino, modo Test con polling/reporte) y sumar CodeMirror para
-   resaltado de JSON y de `{{variables}}`.
-3. **G (progreso real-time)** y **H (picker de CSV)** sobre el frontend React
+2. **PR C+ — Makefile + graceful shutdown**: `make dev|server|web|build|test|lint`
+   en la raíz (`make dev` levanta backend + frontend y Ctrl+C detiene ambos con
+   `$(MAKE) -j2`). `probe-server` ahora hace graceful shutdown con Ctrl+C/SIGTERM
+   (antes ignoraba SIGINT). Verificado: `make dev` + Ctrl+C limpia ambos procesos.
+3. **PR D — paridad del modo Test en React**: mode-switch `Solicitud|Test`, editor
+   de tests (nombre, colección de origen, checkboxes de solicitudes con "todas",
+   iteraciones/delay/CSV), guardado eligiendo colección destino o creando una
+   nueva (`SaveTestModal`), runner con polling de 400 ms y panel de reporte
+   (avg/p95, tabla por solicitud, errores), y lista de tests en la sidebar con
+   ejecutar/detener/editar/ver reporte. Verificado: build, lint, 20 tests,
+   smoke test end-to-end del runner vía API.
+4. **E/F — CodeMirror + restos**: resaltado de JSON y de `{{variables}}` con
+   CodeMirror; revisar paridad fina restante del vanilla.
+5. **G (progreso real-time)** y **H (picker de CSV)** sobre el frontend React
    (regla: no construir sobre el vanilla).
-4. **I — tests + docs** de la UI migrada. Export Markdown y Electron (roadmap).
-5. V2 posible de load tests: pausa/reanudar, más métricas en el reporte.
+6. **I — tests + docs** de la UI migrada. Export Markdown y Electron (roadmap).
+7. V2 posible de load tests: pausa/reanudar, más métricas en el reporte.

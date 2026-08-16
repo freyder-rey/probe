@@ -163,7 +163,7 @@ export function RequestEditor({ request, onChange, onSend, onSave, collections, 
   const methodColor = METHOD_COLORS[request.method.toUpperCase()] ?? ''
 
   return (
-    <section id="editor" aria-label="Editor de solicitud">
+    <>
       <div className="request-bar">
         <select
           id="method"
@@ -365,6 +365,6 @@ export function RequestEditor({ request, onChange, onSend, onSave, collections, 
           </div>
         </div>
       )}
-    </section>
+    </>
   )
 }

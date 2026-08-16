@@ -110,3 +110,28 @@ export function newRequest(): Request {
     validations: [],
   }
 }
+
+// Borrador del editor de tests (estado local del formulario).
+export interface TestDraft {
+  name: string
+  collection: string
+  all: boolean
+  requestNames: string[]
+  iterations: number
+  delayMs: number
+  csv: string
+}
+
+export function newTestDraft(): TestDraft {
+  return { name: '', collection: '', all: true, requestNames: [], iterations: 1, delayMs: 0, csv: '' }
+}
+
+export function draftToLoadTest(d: TestDraft): LoadTest {
+  return {
+    name: d.name.trim(),
+    requestNames: d.all ? [] : d.requestNames,
+    iterations: d.iterations,
+    delayMs: d.delayMs,
+    csv: d.csv.trim() ? { type: 'path', path: d.csv.trim() } : null,
+  }
+}
