@@ -1,7 +1,11 @@
 use std::collections::HashMap;
 
+use axum::{extract::Query, http::HeaderMap, routing::any, Router};
+
 use super::{
-    collection_to_markdown, interpolate,
+    collection_to_markdown,
+    engine::Engine,
+    interpolate,
     validation::{resolve_path, run},
 };
 use crate::domain::{Body, Collection, KeyValue, Request, Response, Validation};
@@ -199,4 +203,259 @@ fn validation_name_is_exposed() {
         max_ms: 10,
     };
     assert_eq!(v.name(), "rápido");
+}
+
+#[test]
+fn validation_header_missing_edges() {
+    let resp = response(None, 200, 10);
+    let results = run(
+        &[
+            Validation::HeaderEquals {
+                name: "hdr ausente".into(),
+                header: "X-Faltante".into(),
+                expected: "1".into(),
+            },
+            Validation::HeaderContains {
+                name: "hdr ausente 2".into(),
+                header: "X-Faltante".into(),
+                expected: "1".into(),
+            },
+        ],
+        &resp,
+    );
+    assert!(!results[0].passed);
+    assert!(!results[1].passed);
+}
+
+#[test]
+fn json_validations_without_body_or_invalid() {
+    let sin_cuerpo = response(None, 200, 10);
+    let results = run(
+        &[
+            Validation::JsonExists {
+                name: "j".into(),
+                path: "$.a".into(),
+            },
+            Validation::JsonEquals {
+                name: "j2".into(),
+                path: "$.a".into(),
+                expected: serde_json::json!(1),
+            },
+        ],
+        &sin_cuerpo,
+    );
+    assert!(!results[0].passed);
+    assert!(!results[1].passed);
+
+    let no_json = response(Some("esto no es json"), 200, 10);
+    let results = run(
+        &[
+            Validation::JsonExists {
+                name: "j".into(),
+                path: "$.a".into(),
+            },
+            Validation::JsonEquals {
+                name: "j2".into(),
+                path: "$.a".into(),
+                expected: serde_json::json!(1),
+            },
+        ],
+        &no_json,
+    );
+    assert!(!results[0].passed);
+    assert!(!results[1].passed);
+
+    let resp = response(Some(r#"{"a":1}"#), 200, 10);
+    let results = run(
+        &[Validation::JsonEquals {
+            name: "j".into(),
+            path: "$.b".into(),
+            expected: serde_json::json!(1),
+        }],
+        &resp,
+    );
+    assert!(!results[0].passed);
+}
+
+#[test]
+fn resolve_path_malformed() {
+    let json = serde_json::json!({"a": {"b": [1, 2]}});
+    assert_eq!(resolve_path(&json, "$.."), None);
+    assert_eq!(resolve_path(&json, "$.a["), None);
+    assert_eq!(resolve_path(&json, "$.a[x]"), None);
+    assert_eq!(resolve_path(&json, "a.b"), None);
+}
+
+#[test]
+fn markdown_urlencoded_and_url_edges() {
+    let mut con_query = Request {
+        id: None,
+        name: "con query".to_string(),
+        method: "GET".to_string(),
+        url: "https://api.example.com/search?fixed=1".to_string(),
+        query: vec![KeyValue::new("q", "rust"), KeyValue::new("off", "x")],
+        headers: vec![KeyValue::new("desactivado", "nope")],
+        body: Body::UrlEncoded {
+            fields: vec![KeyValue::new("a", "1"), KeyValue::new("off", "y")],
+        },
+        timeout_secs: 30,
+        follow_redirects: true,
+        validations: vec![],
+    };
+    con_query.query[1].enabled = false;
+    con_query.headers[0].enabled = false;
+    if let Body::UrlEncoded { fields } = &mut con_query.body {
+        fields[1].enabled = false;
+    }
+
+    let collection = Collection {
+        name: "edges".to_string(),
+        version: "1".to_string(),
+        requests: vec![
+            con_query,
+            Request {
+                id: None,
+                name: "sin scheme".to_string(),
+                method: "GET".to_string(),
+                url: "localhost:8080/path#frag".to_string(),
+                query: vec![],
+                headers: vec![],
+                body: Body::None,
+                timeout_secs: 30,
+                follow_redirects: true,
+                validations: vec![],
+            },
+            Request {
+                id: None,
+                name: "raiz".to_string(),
+                method: "GET".to_string(),
+                url: "https://api.example.com".to_string(),
+                query: vec![],
+                headers: vec![],
+                body: Body::None,
+                timeout_secs: 30,
+                follow_redirects: true,
+                validations: vec![],
+            },
+        ],
+        tests: vec![],
+    };
+
+    let md = collection_to_markdown(&collection);
+    assert!(md.contains("## GET /search — con query"));
+    assert!(md.contains("---\n\n## GET /path — sin scheme"));
+    assert!(md.contains("https://api.example.com/search?fixed=1&q=rust"));
+    assert!(md.contains("**Body (urlencoded)**"));
+    assert!(md.contains("a=1"));
+    assert!(!md.contains("off"));
+    assert!(!md.contains("desactivado"));
+    assert!(md.contains("## GET / — raiz"));
+    assert!(!md.contains("**Validaciones**"));
+}
+
+async fn spawn_engine_server() -> String {
+    let app =
+        Router::new().route(
+            "/anything",
+            any(
+                |Query(params): Query<HashMap<String, String>>,
+                 headers: HeaderMap,
+                 body: String| async move {
+                    let auth = headers
+                        .get("authorization")
+                        .and_then(|h| h.to_str().ok())
+                        .unwrap_or_default()
+                        .to_string();
+                    let json = serde_json::json!({
+                        "id": params.get("id").cloned().unwrap_or_default(),
+                        "auth": auth,
+                        "body": body,
+                    });
+                    axum::Json(json)
+                },
+            ),
+        );
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+    format!("http://{addr}")
+}
+
+fn engine_request(method: &str, url: String, follow: bool) -> Request {
+    Request {
+        id: None,
+        name: "echo".to_string(),
+        method: method.to_string(),
+        url,
+        query: vec![KeyValue::new("id", "42")],
+        headers: vec![KeyValue::new("Authorization", "Bearer token")],
+        body: Body::Raw {
+            content: "raw-body".to_string(),
+        },
+        timeout_secs: 5,
+        follow_redirects: follow,
+        validations: vec![Validation::StatusEquals {
+            name: "status".into(),
+            expected: 200,
+        }],
+    }
+}
+
+#[tokio::test]
+async fn engine_executes_with_query_headers_raw_body_and_validations() {
+    let base = spawn_engine_server().await;
+    let engine = Engine::new().unwrap();
+    let resp = engine
+        .execute(&engine_request("POST", format!("{base}/anything"), true))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status, 200);
+    assert_eq!(resp.status_text, "OK");
+    assert!(resp.url.contains("id=42"));
+    assert!(resp
+        .headers
+        .iter()
+        .any(|(k, v)| k == "content-type" && v.contains("json")));
+    let body: serde_json::Value = serde_json::from_str(resp.body.as_deref().unwrap()).unwrap();
+    assert_eq!(body["id"], "42");
+    assert_eq!(body["auth"], "Bearer token");
+    assert_eq!(body["body"], "raw-body");
+    assert!(resp.validation_results[0].passed);
+}
+
+#[tokio::test]
+async fn engine_urlencoded_body_and_no_follow() {
+    let base = spawn_engine_server().await;
+    let engine = Engine::new().unwrap();
+    let mut req = engine_request("POST", format!("{base}/anything"), false);
+    req.body = Body::UrlEncoded {
+        fields: vec![
+            KeyValue::new("a", "1"),
+            KeyValue::new("b", "2"),
+            KeyValue::new("off", "x"),
+        ],
+    };
+    if let Body::UrlEncoded { fields } = &mut req.body {
+        fields[2].enabled = false;
+    }
+
+    let resp = engine.execute(&req).await.unwrap();
+    assert_eq!(resp.status, 200);
+    let body: serde_json::Value = serde_json::from_str(resp.body.as_deref().unwrap()).unwrap();
+    assert_eq!(body["body"], "a=1&b=2");
+}
+
+#[tokio::test]
+async fn engine_rejects_bad_method_and_url() {
+    let engine = Engine::new().unwrap();
+    let mut req = engine_request("G ET", "https://example.com".to_string(), true);
+    assert!(engine.execute(&req).await.is_err());
+
+    req.method = "GET".to_string();
+    req.url = "no es una url".to_string();
+    assert!(engine.execute(&req).await.is_err());
 }
