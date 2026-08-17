@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Collection, KeyValue, Request, Validation } from '../types'
 import { JsonEditor } from './JsonEditor'
 
@@ -85,6 +85,16 @@ export function RequestEditor({ request, onChange, onSend, onSave, onCreateNew, 
   const [tab, setTab] = useState<'query' | 'headers' | 'body' | 'validations'>('query')
   const [saveModal, setSaveModal] = useState(false)
   const [newCollectionName, setNewCollectionName] = useState('')
+
+  const jsonError = useMemo(() => {
+    if (request.body.type !== 'raw' || !request.body.content.trim()) return null
+    try {
+      JSON.parse(request.body.content)
+      return null
+    } catch (e) {
+      return (e as Error).message.replace(/^JSON\.parse: /, '')
+    }
+  }, [request.body])
 
   useEffect(() => {
     if (!saveModal) return
@@ -201,7 +211,7 @@ export function RequestEditor({ request, onChange, onSend, onSave, onCreateNew, 
           onChange={(e) => set('url', e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') onSend() }}
         />
-        <button id="send" className="primary" disabled={sending} onClick={onSend}>
+        <button id="send" className="primary" disabled={sending || jsonError !== null} onClick={onSend}>
           {sending ? 'Enviando…' : 'Enviar'}
         </button>
         <button id="save" onClick={() => setSaveModal(true)}>Guardar</button>
@@ -291,12 +301,15 @@ export function RequestEditor({ request, onChange, onSend, onSave, onCreateNew, 
             </select>
           </div>
           {request.body.type === 'raw' && (
-            <JsonEditor
-              value={request.body.content}
-              onChange={updateRawBody}
-              placeholder='{"clave": "valor"}'
-              ariaLabel="Body raw"
-            />
+            <>
+              <JsonEditor
+                value={request.body.content}
+                onChange={updateRawBody}
+                placeholder='{"clave": "valor"}'
+                ariaLabel="Body raw"
+              />
+              {jsonError && <div className="json-error" role="alert">JSON inválido: {jsonError}</div>}
+            </>
           )}
           {request.body.type === 'urlencoded' && (
             <div className="kv-list" id="urlencoded-list">
