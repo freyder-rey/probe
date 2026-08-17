@@ -11,7 +11,7 @@ function renderEditor() {
     url: 'https://httpbin.org/get',
     headers: [{ key: 'X-Token', value: 'abc', enabled: true }],
     query: [{ key: 'page', value: '2', enabled: true }],
-    body: { type: 'raw', content: '{"a":1}' },
+    body: { type: 'raw' as const, content: '{"a":1}' },
     validations: [{ kind: 'status_equals' as const, name: 'Validación', expected: 200 }],
   }
   const collections: Collection[] = []

@@ -5,6 +5,7 @@ use axum::{extract::Query, http::HeaderMap, routing::any, Router};
 use super::{
     collection_to_markdown,
     engine::Engine,
+    extract_variables,
     interpolate,
     validation::{resolve_path, run},
 };
@@ -458,4 +459,70 @@ async fn engine_rejects_bad_method_and_url() {
     req.method = "GET".to_string();
     req.url = "no es una url".to_string();
     assert!(engine.execute(&req).await.is_err());
+}
+
+#[test]
+fn extract_variables_from_url_query_headers_body() {
+    let reqs = vec![Request {
+        id: None,
+        name: "test".to_string(),
+        method: "GET".to_string(),
+        url: "https://api.example.com/users/{{userId}}/posts".to_string(),
+        query: vec![KeyValue::new("page", "{{page}}")],
+        headers: vec![KeyValue::new("Authorization", "Bearer {{token}}")],
+        body: Body::Raw {
+            content: r#"{"name":"{{name}}"}"#.to_string(),
+        },
+        timeout_secs: 30,
+        follow_redirects: true,
+        validations: vec![],
+    }];
+    let refs: Vec<&Request> = reqs.iter().collect();
+    let vars = extract_variables(&refs);
+    assert!(vars.contains("userId"));
+    assert!(vars.contains("page"));
+    assert!(vars.contains("token"));
+    assert!(vars.contains("name"));
+    assert_eq!(vars.len(), 4);
+}
+
+#[test]
+fn extract_variables_deduplicates() {
+    let reqs = vec![Request {
+        id: None,
+        name: "dup".to_string(),
+        method: "POST".to_string(),
+        url: "https://api.example.com/{{id}}".to_string(),
+        query: vec![KeyValue::new("ref", "{{id}}")],
+        headers: vec![],
+        body: Body::Raw {
+            content: r#"{"ref":"{{id}}"}"#.to_string(),
+        },
+        timeout_secs: 30,
+        follow_redirects: true,
+        validations: vec![],
+    }];
+    let refs: Vec<&Request> = reqs.iter().collect();
+    let vars = extract_variables(&refs);
+    assert!(vars.contains("id"));
+    assert_eq!(vars.len(), 1);
+}
+
+#[test]
+fn extract_variables_empty_when_no_placeholders() {
+    let reqs = vec![Request {
+        id: None,
+        name: "plain".to_string(),
+        method: "GET".to_string(),
+        url: "https://api.example.com/fixed".to_string(),
+        query: vec![],
+        headers: vec![],
+        body: Body::None,
+        timeout_secs: 30,
+        follow_redirects: true,
+        validations: vec![],
+    }];
+    let refs: Vec<&Request> = reqs.iter().collect();
+    let vars = extract_variables(&refs);
+    assert!(vars.is_empty());
 }

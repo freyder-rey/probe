@@ -138,10 +138,11 @@ export interface TestDraft {
   iterations: number
   delayMs: number
   csv: string
+  csvColumns: string[]
 }
 
 export function newTestDraft(): TestDraft {
-  return { name: '', collection: '', all: true, requestNames: [], iterations: 1, delayMs: 0, csv: '' }
+  return { name: '', collection: '', all: true, requestNames: [], iterations: 1, delayMs: 0, csv: '', csvColumns: [] }
 }
 
 export function draftToLoadTest(d: TestDraft): LoadTest {
