@@ -27,6 +27,38 @@ fn interpolate_replaces_known_vars_and_keeps_unknown() {
     assert_eq!(interpolate("", &vars), "");
 }
 
+#[test]
+fn interpolate_replaces_path_params() {
+    let mut vars = HashMap::new();
+    vars.insert("id".to_string(), "42".to_string());
+    vars.insert("user".to_string(), "ana".to_string());
+
+    assert_eq!(
+        interpolate("/users/:id/posts", &vars),
+        "/users/42/posts"
+    );
+    assert_eq!(
+        interpolate("/:user/profile", &vars),
+        "/ana/profile"
+    );
+    assert_eq!(
+        interpolate("/users/:user/:id", &vars),
+        "/users/ana/42"
+    );
+    assert_eq!(
+        interpolate("https://api.example.com/:id", &vars),
+        "https://api.example.com/42"
+    );
+    assert_eq!(
+        interpolate("/unknown/:falta", &vars),
+        "/unknown/:falta"
+    );
+    assert_eq!(
+        interpolate("https://api.example.com:8080/:id", &vars),
+        "https://api.example.com:8080/42"
+    );
+}
+
 fn response(body: Option<&str>, status: u16, duration_ms: u128) -> Response {
     Response {
         status,
