@@ -265,3 +265,49 @@ modal de guardado.
   prefijos tipo `ci/`.
 - Verificado local: build, clippy/fmt limpios, 24 tests Rust, 28 tests web,
   lint. `make test` corre Rust + vitest + lint.
+
+### Sesión actual (PRs #18-#22 + CI de PRs)
+
+- **PR #18 `fix/release-ci-upload-artifact` mergeado** → `develop`. Fix del
+  release CI que fallaba en Windows: los binarios se copian a `dist/` (ruta
+  relativa al workspace) en vez de `/tmp/out`. Bump a `upload-artifact@v7` /
+  `download-artifact@v8` (node24). `pattern: bin-*` para no mezclar changelog
+  con binarios, y `overwrite: true` para re-runs. Verificado: YAML válido.
+- **PR #19 merge develop → main**: disparó el release CI con el fix.
+  **v0.1.4** publicado exitosamente (el primer release real del proyecto).
+- **PR #20 `feature/ci-cobertura-prs` mergeado** → `develop`. Nuevo
+  `.github/workflows/ci.yml`: en cada PR hacia develop corren 4 jobs —
+  **git flow** (prefijo `feature/|fix/|docs/|hotfix/`), **build** (`cargo build`
+  + `clippy -D warnings` + `cargo fmt --check`), **tests** (`cargo test --workspace`)
+  y **coverage** (`cargo llvm-cov -p probe-core --fail-under-lines 90`).
+  25 tests nuevos (24→49 Rust): engine (query/headers/bodies/errores), edge
+  cases de validaciones (header ausente, body sin JSON, paths malformados),
+  markdown (urlencoded, kvs disabled, urls edge), storage (save_path,
+  sanitización, JSON inválido, csv_dir, HOME fallback), memory (load_file,
+  overwrite), defaults de deserialización. Probe-core coverage 83.16% → 92.32%.
+  Cobertura gate: cierra si baja de 90%.
+- **PR #21 mergeado** → `develop`. Bump `actions/checkout@v4` → `@v5` en
+  `ci.yml` y `release.yml` para eliminar el warning de Node 20 deprecation.
+- **PR #22 `docs/update-agents-md` mergeado** → `develop`. AGENTS.md
+  actualizado con notas de las sesiones anteriores.
+- **Protocolo de sincronización** (nueva regla para evitar desyncs de develop):
+  1. Al arrancar trabajo: `git fetch origin && git reset --hard origin/develop`.
+  2. Nunca `git push` a una rama con PR mergeado — crear rama nueva desde
+     develop actual.
+  3. Después de merge: `git fetch && git checkout develop && git reset --hard origin/develop`.
+  4. Usar `--admin` en merges de PRs (develop exige 1 review pero no hay
+     otros reviewers).
+- **Ramas en el remoto**: `develop` (080f229), `main`. Todas las ramas de PRs
+  anteriores se borraron con `deleteBranchOnMerge: true`.
+- **Tags**: `v0.1.0`–`v0.1.3` basura (runs fallidos); `v0.1.4` es el primer
+  release real.
+- Verificado local: 49 tests Rust, 28 tests web, clippy/fmt limpios,
+  coverage 92.32% (gate pasa). `make test` corre Rust + vitest + lint.
+
+### Pendientes conocidos
+
+1. **Electron** para el frontend (roadmap, no prioridad inmediata).
+2. **V2 de load tests**: pausa/reanudar, más métricas en el reporte.
+3. **Tags basura** (`v0.1.0`–`v0.1.3`): podrían limpiarse con `git tag -d`
+   + `git push origin --delete` (afecta releases fallidos, no el código).
+4. **`AGENTS.md`**: las notas de sesión ya están en develop (PR #22).
