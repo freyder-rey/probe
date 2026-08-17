@@ -96,6 +96,10 @@ export interface RunEvent {
   iteration: number
   /** Índice 0-based de la fila CSV usada (null si no hay CSV). */
   csvRow: number | null
+  /** Método HTTP (GET, POST, PUT, etc.). */
+  method: string
+  /** URL interpolada a la que se envió la solicitud. */
+  url: string
   /** Status HTTP real (null si hubo error de red/parseo). */
   status: number | null
   ok: boolean

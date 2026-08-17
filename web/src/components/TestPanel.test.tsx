@@ -91,6 +91,8 @@ describe('TestPanel', () => {
             request: 'ok',
             iteration: 1,
             csvRow: null,
+            method: 'GET',
+            url: 'http://localhost/ok',
             status: 200,
             ok: true,
             durationMs: 42,
@@ -102,8 +104,8 @@ describe('TestPanel', () => {
       />,
     )
     expect(screen.getByTestId('test-panel-log')).toBeInTheDocument()
-    expect(screen.getByText('Status 200')).toBeInTheDocument()
-    expect(screen.getByText('42 ms')).toBeInTheDocument()
+    expect(screen.getByText('200')).toBeInTheDocument()
+    expect(screen.getByText('42ms')).toBeInTheDocument()
 
     rerender(
       <TestPanel
@@ -120,6 +122,8 @@ describe('TestPanel', () => {
             request: 'bad',
             iteration: 1,
             csvRow: null,
+            method: 'POST',
+            url: 'http://localhost/bad',
             status: 500,
             ok: false,
             durationMs: 120,
@@ -130,7 +134,7 @@ describe('TestPanel', () => {
         onRunAgain={vi.fn()}
       />,
     )
-    expect(screen.getByText('Status 500')).toBeInTheDocument()
+    expect(screen.getByText('500')).toBeInTheDocument()
     const rows = screen.getAllByTestId('test-panel-log')[0].querySelectorAll('li')
     expect(rows.length).toBe(2)
   })

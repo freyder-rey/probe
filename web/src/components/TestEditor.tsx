@@ -168,6 +168,12 @@ export function TestEditor({ collections, draft, onChange, onRun, onSave }: Prop
         </div>
       </fieldset>
 
+      {draft.csv && draft.csvColumns.length > 0 && (
+        <div className="csv-info" id="test-csv-info">
+          CSV: {draft.csvColumns.length} fila(s) detectada(s)
+        </div>
+      )}
+
       <div className="test-fields">
         <label className="field">Iteraciones
           <input
@@ -177,6 +183,9 @@ export function TestEditor({ collections, draft, onChange, onRun, onSave }: Prop
             min={1}
             onChange={(e) => set('iterations', parseInt(e.target.value, 10) || 1)}
           />
+          {draft.csv && draft.csvColumns.length > 0 && (
+            <span className="field-hint">× {draft.csvColumns.length} filas CSV = {draft.iterations * draft.csvColumns.length} requests totales</span>
+          )}
         </label>
         <label className="field">Delay (ms)
           <input
