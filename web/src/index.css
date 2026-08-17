@@ -430,6 +430,15 @@ main {
 .csv-coverage-warn { color: var(--red); }
 .csv-coverage-info { color: var(--muted); }
 
+.json-error {
+  color: var(--red);
+  font-size: 0.82em;
+  margin-top: 4px;
+  padding: 4px 8px;
+  background: rgba(255, 0, 0, 0.08);
+  border-radius: 4px;
+}
+
 #request-response, #test-panel {
   flex: 1;
   min-height: 0;
