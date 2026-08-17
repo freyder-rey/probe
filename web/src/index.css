@@ -348,8 +348,8 @@ body {
 
 .log-row {
   display: grid;
-  grid-template-columns: 48px 1fr 110px auto;
-  gap: 10px;
+  grid-template-columns: 32px auto 40px auto minmax(40px, auto) 1fr 48px;
+  gap: 6px;
   align-items: center;
   padding: 5px 10px;
   border-bottom: 1px solid var(--border);
@@ -360,13 +360,13 @@ body {
 
 .log-row.fail .log-status { color: var(--red); }
 
-.log-num { color: var(--text-dim); font-variant-numeric: tabular-nums; min-width: 32px; font-size: 11px; }
-.log-csv { color: var(--accent); font-size: 0.85em; margin-left: 0.3em; }
-.log-method { font-weight: 600; font-size: 11px; min-width: 40px; margin-left: 0.4em; }
-.log-req { font-weight: 600; margin-right: 0.5em; }
-.log-url { color: var(--text-dim); font-size: 11px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.log-status { font-weight: 600; font-size: 11px; margin-left: 0.5em; }
-.log-detail { color: var(--text-dim); text-align: right; font-size: 11px; }
+.log-num { color: var(--text-dim); font-variant-numeric: tabular-nums; font-size: 11px; }
+.log-csv { color: var(--accent); font-size: 0.85em; }
+.log-method { font-weight: 600; font-size: 11px; text-align: right; }
+.log-req { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log-status { font-weight: 600; font-size: 11px; text-align: center; }
+.log-url { color: var(--text-dim); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.log-detail { color: var(--text-dim); text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; }
 
 .csv-info {
   font-size: 12px;

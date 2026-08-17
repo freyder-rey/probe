@@ -53,8 +53,8 @@ function renderEvent(e: RunEvent, idx: number) {
       {e.csvRow != null && <span className="log-csv">CSV#{e.csvRow + 1}</span>}
       <span className="log-method">{e.method}</span>
       <span className="log-req">{e.request}</span>
-      <span className="log-url" title={e.url}>{e.url}</span>
       <span className="log-status">{label}</span>
+      <span className="log-url" title={e.url}>{e.url}</span>
       <span className="log-detail">{detail}</span>
     </li>
   )
