@@ -44,14 +44,16 @@ function renderReport(r: LoadTestReport) {
   )
 }
 
-function renderEvent(e: RunEvent) {
-  const label = e.status != null ? `Status ${e.status}` : 'error de red'
-  const detail = e.error ?? `${e.durationMs} ms`
+function renderEvent(e: RunEvent, idx: number) {
+  const label = e.status != null ? `${e.status}` : 'ERR'
+  const detail = e.error ?? `${e.durationMs}ms`
   return (
-    <li className={`log-row ${e.ok ? 'ok' : 'fail'}`} key={`${e.request}-${e.iteration}`}>
-      <span className="log-iter">#{e.iteration}</span>
+    <li className={`log-row ${e.ok ? 'ok' : 'fail'}`} key={`${e.request}-${e.iteration}-${idx}`}>
+      <span className="log-num">#{idx + 1}</span>
       {e.csvRow != null && <span className="log-csv">CSV#{e.csvRow + 1}</span>}
+      <span className="log-method">{e.method}</span>
       <span className="log-req">{e.request}</span>
+      <span className="log-url" title={e.url}>{e.url}</span>
       <span className="log-status">{label}</span>
       <span className="log-detail">{detail}</span>
     </li>
@@ -64,7 +66,7 @@ function renderLog(log: RunEvent[]) {
     <>
       <p className="report-detail">Ejecuciones:</p>
       <ul className="report-log" data-testid="test-panel-log">
-        {log.map(renderEvent)}
+        {log.map((e, idx) => renderEvent(e, idx))}
       </ul>
     </>
   )

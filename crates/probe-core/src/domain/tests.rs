@@ -169,6 +169,8 @@ fn run_event_roundtrip() {
         request: "ok".to_string(),
         iteration: 2,
         csv_row: None,
+        method: "GET".to_string(),
+        url: "http://localhost/ok".to_string(),
         status: Some(200),
         ok: true,
         duration_ms: 3,
@@ -183,6 +185,8 @@ fn run_event_roundtrip() {
     assert_eq!(back.status, Some(200));
     assert_eq!(back.iteration, 2);
     assert_eq!(back.csv_row, None);
+    assert_eq!(back.method, "GET");
+    assert_eq!(back.url, "http://localhost/ok");
 }
 
 #[test]

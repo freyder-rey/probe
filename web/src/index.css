@@ -356,14 +356,30 @@ body {
 }
 
 .log-row:last-child { border-bottom: none; }
-
 .log-row.ok .log-status { color: var(--green); }
+
 .log-row.fail .log-status { color: var(--red); }
 
-.log-iter { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.log-num { color: var(--text-dim); font-variant-numeric: tabular-nums; min-width: 32px; font-size: 11px; }
 .log-csv { color: var(--accent); font-size: 0.85em; margin-left: 0.3em; }
-.log-req { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.log-detail { color: var(--text-dim); text-align: right; }
+.log-method { font-weight: 600; font-size: 11px; min-width: 40px; margin-left: 0.4em; }
+.log-req { font-weight: 600; margin-right: 0.5em; }
+.log-url { color: var(--text-dim); font-size: 11px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.log-status { font-weight: 600; font-size: 11px; margin-left: 0.5em; }
+.log-detail { color: var(--text-dim); text-align: right; font-size: 11px; }
+
+.csv-info {
+  font-size: 12px;
+  color: var(--accent);
+  padding: 4px 0 0;
+}
+.field-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  font-style: italic;
+}
 
 .method.get { color: var(--green); }
 .method.post { color: var(--orange); }
