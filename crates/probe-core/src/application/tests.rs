@@ -482,7 +482,7 @@ async fn engine_rejects_bad_method_and_url() {
 
 #[test]
 fn extract_variables_from_url_query_headers_body() {
-    let reqs = vec![Request {
+    let reqs = [Request {
         id: None,
         name: "test".to_string(),
         method: "GET".to_string(),
@@ -507,7 +507,7 @@ fn extract_variables_from_url_query_headers_body() {
 
 #[test]
 fn extract_variables_deduplicates() {
-    let reqs = vec![Request {
+    let reqs = [Request {
         id: None,
         name: "dup".to_string(),
         method: "POST".to_string(),
@@ -529,7 +529,7 @@ fn extract_variables_deduplicates() {
 
 #[test]
 fn extract_variables_empty_when_no_placeholders() {
-    let reqs = vec![Request {
+    let reqs = [Request {
         id: None,
         name: "plain".to_string(),
         method: "GET".to_string(),
