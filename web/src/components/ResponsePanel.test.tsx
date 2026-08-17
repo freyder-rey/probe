@@ -35,7 +35,8 @@ describe('ResponsePanel', () => {
     const user = userEvent.setup()
     render(<ResponsePanel response={response} error="" />)
     await user.click(screen.getByText('Headers'))
-    expect(screen.getByText(/content-type: application\/json/)).toBeInTheDocument()
+    expect(screen.getByText('content-type')).toBeInTheDocument()
+    expect(screen.getByText('application/json')).toBeInTheDocument()
   })
 
   it('muestra las validaciones con su resultado', async () => {

@@ -105,6 +105,17 @@ export function RequestEditor({ request, onChange, onSend, onSave, onCreateNew, 
     return () => document.removeEventListener('keydown', onKey)
   }, [saveModal])
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        setSaveModal(true)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
   function set<K extends keyof Request>(key: K, value: Request[K]) {
     onChange({ ...request, [key]: value })
   }

@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { api } from '../api'
 import type { Collection, Request, TestDraft } from '../types'
 
@@ -35,6 +35,17 @@ interface Props {
 
 export function TestEditor({ collections, draft, onChange, onRun, onSave }: Props) {
   const csvInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        onSave()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onSave])
 
   const requests = useMemo(() => {
     const source = collections.find((c) => c.name === draft.collection)
