@@ -58,8 +58,8 @@ function validationValue(v: Validation, field: string): string | number {
 }
 
 function validationName(v: Validation): string {
-  const json = JSON.stringify(v)
-  return `${v.kind}: ${json}`
+  const { name: _, ...rest } = v
+  return `${v.kind}: ${JSON.stringify(rest)}`
 }
 
 function makeValidation(kind: Validation['kind']): Validation {
@@ -83,7 +83,6 @@ function makeValidation(kind: Validation['kind']): Validation {
 
 export function RequestEditor({ request, onChange, onSend, onSave, onCreateNew, collections, sending }: Props) {
   const [tab, setTab] = useState<'query' | 'headers' | 'body' | 'validations'>('query')
-  const [bodyType, setBodyType] = useState<Request['body']['type']>(request.body.type)
   const [saveModal, setSaveModal] = useState(false)
   const [newCollectionName, setNewCollectionName] = useState('')
 
@@ -117,14 +116,13 @@ export function RequestEditor({ request, onChange, onSend, onSave, onCreateNew, 
   }
 
   function switchBodyType(type: Request['body']['type']) {
-    setBodyType(type)
-    if (type === 'raw') set('body', { type: 'raw', content: '' })
-    else if (type === 'urlencoded') set('body', { type: 'urlencoded', fields: [] })
-    else set('body', { type: 'none' })
+    if (type === 'raw') set('body', { type: 'raw' as const, content: '' })
+    else if (type === 'urlencoded') set('body', { type: 'urlencoded' as const, fields: [] })
+    else set('body', { type: 'none' as const })
   }
 
   function updateRawBody(content: string) {
-    set('body', { type: 'raw', content })
+    set('body', { type: 'raw' as const, content })
   }
 
   function updateUrlEncoded(idx: number, patch: Partial<KeyValue>) {
@@ -284,7 +282,7 @@ export function RequestEditor({ request, onChange, onSend, onSave, onCreateNew, 
             <select
               id="body-type"
               aria-label="Tipo de body"
-              value={bodyType}
+              value={request.body.type}
               onChange={(e) => switchBodyType(e.target.value as Request['body']['type'])}
             >
               <option value="none">Sin cuerpo</option>
