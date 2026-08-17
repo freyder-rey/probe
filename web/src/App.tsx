@@ -235,6 +235,7 @@ export default function App() {
       iterations: test.iterations,
       delayMs: test.delayMs,
       csv: test.csv && test.csv.type === 'path' ? test.csv.path : '',
+      csvColumns: [],
     })
     setRunKey(null)
     setRunStatus(null)

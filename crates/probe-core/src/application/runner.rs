@@ -16,7 +16,10 @@ use crate::domain::{
 };
 
 use super::{
-    interpolation::interpolate, ports::CsvRowLoader, ports::HttpExecutor, ports::LoadTestRunner,
+    interpolation::{extract_variables, interpolate},
+    ports::CsvRowLoader,
+    ports::HttpExecutor,
+    ports::LoadTestRunner,
 };
 
 struct Sample {
@@ -62,6 +65,20 @@ impl Runner {
             }
             None => vec![],
         };
+
+        if !rows.is_empty() {
+            let csv_headers: std::collections::HashSet<String> =
+                rows[0].keys().cloned().collect();
+            let used_vars = extract_variables(&flow);
+            let missing: Vec<&String> = used_vars.difference(&csv_headers).collect();
+            if !missing.is_empty() {
+                let names: Vec<String> = missing.iter().map(|s| format!("{{{{{s}}}}}")).collect();
+                bail!(
+                    "las solicitudes usan variables que no existen en el CSV: {}",
+                    names.join(", ")
+                );
+            }
+        }
 
         let total = test.iterations * flow.len() as u64;
         let mut completed: u64 = 0;
@@ -489,5 +506,31 @@ mod tests {
         assert!(!events[1].ok);
         assert_eq!(events[2].iteration, 2);
         assert_eq!(events[3].request, "bad");
+    }
+
+    #[tokio::test]
+    async fn runner_errors_when_csv_missing_variables() {
+        let csv = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src/infrastructure/testdata/usuarios.csv");
+        let requests = vec![request(
+            "usuarios",
+            "https://example.com/{{id}}/{{falta}}".to_string(),
+            vec![],
+        )];
+        let test = LoadTest {
+            name: "csv vars".to_string(),
+            request_names: vec!["usuarios".to_string()],
+            iterations: 1,
+            delay_ms: 0,
+            csv: Some(CsvSource::Path {
+                path: csv.to_string_lossy().into_owned(),
+            }),
+        };
+
+        let runner = runner();
+        let result = runner.run(&test, &requests, None, |_| {}).await;
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(msg.contains("falta"), "debería mencionar la variable faltante: {msg}");
     }
 }

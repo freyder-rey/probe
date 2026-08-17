@@ -255,6 +255,7 @@ pub struct UploadCsvBody {
 #[derive(serde::Serialize)]
 pub struct UploadCsvResponse {
     pub path: String,
+    pub columns: Vec<String>,
 }
 
 /// Guarda un CSV subido por el navegador en el directorio de datos y devuelve
@@ -266,8 +267,18 @@ pub async fn upload_csv(
     let name = sanitize_csv_name(&body.name);
     let path = dir.join(format!("{name}.csv"));
     std::fs::write(&path, body.content.as_bytes()).map_err(|e| internal(anyhow::anyhow!(e)))?;
+    let columns = body
+        .content
+        .lines()
+        .next()
+        .unwrap_or_default()
+        .split(',')
+        .map(|h| h.trim().trim_matches('"').to_string())
+        .filter(|h| !h.is_empty())
+        .collect();
     Ok(Json(UploadCsvResponse {
         path: path.to_string_lossy().into_owned(),
+        columns,
     }))
 }
 

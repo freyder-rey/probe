@@ -1,6 +1,29 @@
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { api } from '../api'
-import type { Collection, TestDraft } from '../types'
+import type { Collection, Request, TestDraft } from '../types'
+
+function extractVars(requests: Request[]): Set<string> {
+  const vars = new Set<string>()
+  const re = /\{\{(\w+)\}\}/g
+  for (const req of requests) {
+    for (const m of req.url.matchAll(re)) vars.add(m[1])
+    for (const kv of req.query) {
+      for (const m of kv.value.matchAll(re)) vars.add(m[1])
+    }
+    for (const kv of req.headers) {
+      for (const m of kv.key.matchAll(re)) vars.add(m[1])
+      for (const m of kv.value.matchAll(re)) vars.add(m[1])
+    }
+    if (req.body.type === 'raw') {
+      for (const m of req.body.content.matchAll(re)) vars.add(m[1])
+    } else if (req.body.type === 'urlencoded') {
+      for (const kv of req.body.fields) {
+        for (const m of kv.value.matchAll(re)) vars.add(m[1])
+      }
+    }
+  }
+  return vars
+}
 
 interface Props {
   collections: Collection[]
@@ -11,10 +34,29 @@ interface Props {
 }
 
 export function TestEditor({ collections, draft, onChange, onRun, onSave }: Props) {
-  const source = collections.find((c) => c.name === draft.collection)
-  const requests = source?.requests ?? []
-  const checked = draft.requestNames.filter((n) => requests.some((r) => r.name === n)).length
   const csvInputRef = useRef<HTMLInputElement>(null)
+
+  const requests = useMemo(() => {
+    const source = collections.find((c) => c.name === draft.collection)
+    return source?.requests ?? []
+  }, [collections, draft.collection])
+
+  const checked = draft.requestNames.filter((n) => requests.some((r) => r.name === n)).length
+
+  const selectedRequests = useMemo(() => {
+    if (draft.all) return requests
+    return requests.filter((r) => draft.requestNames.includes(r.name))
+  }, [requests, draft.all, draft.requestNames])
+
+  const usedVars = useMemo(() => extractVars(selectedRequests), [selectedRequests])
+
+  const varCoverage = useMemo(() => {
+    if (draft.csvColumns.length === 0 || usedVars.size === 0) return null
+    const covered = [...usedVars].filter((v) => draft.csvColumns.includes(v))
+    const missing = [...usedVars].filter((v) => !draft.csvColumns.includes(v))
+    const unused = draft.csvColumns.filter((c) => !usedVars.has(c))
+    return { covered, missing, unused }
+  }, [usedVars, draft.csvColumns])
 
   function set<K extends keyof TestDraft>(key: K, value: TestDraft[K]) {
     onChange({ ...draft, [key]: value })
@@ -22,10 +64,12 @@ export function TestEditor({ collections, draft, onChange, onRun, onSave }: Prop
 
   async function pickCsv(file: File) {
     try {
-      const path = await api.uploadCsv(file.name, await file.text())
+      const { path, columns } = await api.uploadCsv(file.name, await file.text())
       set('csv', path)
+      set('csvColumns', columns)
     } catch (err) {
       set('csv', '')
+      set('csvColumns', [])
       alert('No se pudo subir el CSV: ' + (err as Error).message)
     }
   }
@@ -163,6 +207,26 @@ export function TestEditor({ collections, draft, onChange, onRun, onSave }: Prop
           Subir CSV…
         </button>
       </label>
+
+      {varCoverage && (
+        <div id="csv-var-coverage" className="csv-coverage">
+          {varCoverage.covered.length > 0 && (
+            <span className="csv-coverage-ok">
+              ✓ Cubiertas: {varCoverage.covered.map((v) => `{{${v}}}`).join(', ')}
+            </span>
+          )}
+          {varCoverage.missing.length > 0 && (
+            <span className="csv-coverage-warn">
+              ✗ Ausentes en CSV: {varCoverage.missing.map((v) => `{{${v}}}`).join(', ')}
+            </span>
+          )}
+          {varCoverage.unused.length > 0 && (
+            <span className="csv-coverage-info">
+              Columnas sin usar: {varCoverage.unused.join(', ')}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="test-actions">
         <button id="test-run" className="primary" onClick={onRun}>▶ Ejecutar</button>

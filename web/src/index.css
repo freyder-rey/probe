@@ -419,6 +419,17 @@ main {
 .test-actions { display: flex; gap: 8px; margin-top: 16px; }
 .test-actions button { flex: 1; }
 
+.csv-coverage {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 0.82em;
+}
+.csv-coverage-ok { color: var(--green); }
+.csv-coverage-warn { color: var(--red); }
+.csv-coverage-info { color: var(--muted); }
+
 #request-response, #test-panel {
   flex: 1;
   min-height: 0;
