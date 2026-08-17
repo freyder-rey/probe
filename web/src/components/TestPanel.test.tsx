@@ -90,6 +90,7 @@ describe('TestPanel', () => {
           lastEvent: {
             request: 'ok',
             iteration: 1,
+            csvRow: null,
             status: 200,
             ok: true,
             durationMs: 42,
@@ -118,6 +119,7 @@ describe('TestPanel', () => {
           lastEvent: {
             request: 'bad',
             iteration: 1,
+            csvRow: null,
             status: 500,
             ok: false,
             durationMs: 120,

@@ -94,6 +94,8 @@ export interface RunEvent {
   request: string
   /** Iteración 1-based en la que se ejecutó la solicitud. */
   iteration: number
+  /** Índice 0-based de la fila CSV usada (null si no hay CSV). */
+  csvRow: number | null
   /** Status HTTP real (null si hubo error de red/parseo). */
   status: number | null
   ok: boolean

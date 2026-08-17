@@ -67,8 +67,7 @@ impl Runner {
         };
 
         if !rows.is_empty() {
-            let csv_headers: std::collections::HashSet<String> =
-                rows[0].keys().cloned().collect();
+            let csv_headers: std::collections::HashSet<String> = rows[0].keys().cloned().collect();
             let used_vars = extract_variables(&flow);
             let missing: Vec<&String> = used_vars.difference(&csv_headers).collect();
             if !missing.is_empty() {
@@ -93,17 +92,57 @@ impl Runner {
             list
         };
 
+        let has_csv = !rows.is_empty();
+        let csv_row_count = rows.len() as u64;
         let start = std::time::Instant::now();
+
+        eprintln!(
+            "▶ Test \"{}\": {} iteración(es), {} solicitud(es){}, CSV: {} fila(s)",
+            test.name,
+            test.iterations,
+            flow.len(),
+            if test.delay_ms > 0 {
+                format!(", delay {}ms", test.delay_ms)
+            } else {
+                String::new()
+            },
+            if has_csv {
+                csv_row_count.to_string()
+            } else {
+                "ninguno".to_string()
+            },
+        );
 
         'outer: for i in 0..test.iterations {
             if is_cancelled(cancel) {
                 break;
             }
-            let vars = if rows.is_empty() {
-                HashMap::new()
+            let csv_row_idx = if has_csv {
+                Some(i % csv_row_count)
             } else {
-                rows[i as usize % rows.len()].clone()
+                None
             };
+            let vars = if has_csv {
+                rows[(i % csv_row_count) as usize].clone()
+            } else {
+                HashMap::new()
+            };
+
+            if has_csv {
+                eprintln!(
+                    "  Iteración {}/{} → CSV fila {}/{}: {}",
+                    i + 1,
+                    test.iterations,
+                    csv_row_idx.unwrap() + 1,
+                    csv_row_count,
+                    vars.iter()
+                        .map(|(k, v)| format!("{k}={v}"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+            } else {
+                eprintln!("  Iteración {}/{}", i + 1, test.iterations);
+            }
 
             for (pos, req) in flow.iter().enumerate() {
                 if is_cancelled(cancel) {
@@ -163,6 +202,21 @@ impl Runner {
                     summary.failed += 1;
                 }
 
+                let status_str = sample
+                    .status
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "ERR".to_string());
+                eprintln!(
+                    "    [{}/{}] {} {} → {} ({}ms){}",
+                    completed,
+                    total,
+                    req.method,
+                    req.name,
+                    status_str,
+                    sample.duration_ms,
+                    if sample.passed { "" } else { " ✗" }
+                );
+
                 on_progress(RunProgress {
                     done: completed,
                     total,
@@ -171,6 +225,7 @@ impl Runner {
                     last_event: Some(RunEvent {
                         request: req.name.clone(),
                         iteration: i + 1,
+                        csv_row: csv_row_idx,
                         status: sample.status,
                         ok: sample.passed,
                         duration_ms: sample.duration_ms,
@@ -183,6 +238,15 @@ impl Runner {
                 }
             }
         }
+
+        eprintln!(
+            "✓ Test \"{}\" completado: {}/{} exitosas, {} fallidas, {}ms total",
+            test.name,
+            successes,
+            completed,
+            completed - successes,
+            start.elapsed().as_millis()
+        );
 
         let duration_ms = start.elapsed().as_millis();
         let failed = completed - successes;
@@ -501,10 +565,12 @@ mod tests {
         assert_eq!(events[0].request, "ok");
         assert_eq!(events[0].status, Some(200));
         assert!(events[0].ok);
+        assert_eq!(events[0].csv_row, None);
         assert_eq!(events[1].request, "bad");
         assert_eq!(events[1].status, Some(500));
         assert!(!events[1].ok);
         assert_eq!(events[2].iteration, 2);
+        assert_eq!(events[2].csv_row, None);
         assert_eq!(events[3].request, "bad");
     }
 
@@ -531,6 +597,9 @@ mod tests {
         let result = runner.run(&test, &requests, None, |_| {}).await;
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
-        assert!(msg.contains("falta"), "debería mencionar la variable faltante: {msg}");
+        assert!(
+            msg.contains("falta"),
+            "debería mencionar la variable faltante: {msg}"
+        );
     }
 }

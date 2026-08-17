@@ -50,6 +50,7 @@ function renderEvent(e: RunEvent) {
   return (
     <li className={`log-row ${e.ok ? 'ok' : 'fail'}`} key={`${e.request}-${e.iteration}`}>
       <span className="log-iter">#{e.iteration}</span>
+      {e.csvRow != null && <span className="log-csv">CSV#{e.csvRow + 1}</span>}
       <span className="log-req">{e.request}</span>
       <span className="log-status">{label}</span>
       <span className="log-detail">{detail}</span>

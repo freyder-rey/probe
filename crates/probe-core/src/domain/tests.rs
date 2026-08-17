@@ -168,6 +168,7 @@ fn run_event_roundtrip() {
     let event = RunEvent {
         request: "ok".to_string(),
         iteration: 2,
+        csv_row: None,
         status: Some(200),
         ok: true,
         duration_ms: 3,
@@ -177,9 +178,11 @@ fn run_event_roundtrip() {
     assert!(json.get("iteration").is_some());
     assert!(json.get("status").is_some());
     assert!(json.get("durationMs").is_some());
+    assert!(json.get("csvRow").is_some());
     let back: RunEvent = serde_json::from_value(json).unwrap();
     assert_eq!(back.status, Some(200));
     assert_eq!(back.iteration, 2);
+    assert_eq!(back.csv_row, None);
 }
 
 #[test]

@@ -361,6 +361,7 @@ body {
 .log-row.fail .log-status { color: var(--red); }
 
 .log-iter { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.log-csv { color: var(--accent); font-size: 0.85em; margin-left: 0.3em; }
 .log-req { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .log-detail { color: var(--text-dim); text-align: right; }
 

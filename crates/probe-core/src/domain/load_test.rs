@@ -58,6 +58,8 @@ pub struct RunEvent {
     pub request: String,
     /// Iteración 1-based en la que se ejecutó la solicitud.
     pub iteration: u64,
+    /// Índice 0-based de la fila CSV usada en esta iteración (None si no hay CSV).
+    pub csv_row: Option<u64>,
     /// Status HTTP real de la respuesta (None si hubo error de red/parseo).
     pub status: Option<u16>,
     /// true si pasó (sin validaciones fallidas y sin error de red).

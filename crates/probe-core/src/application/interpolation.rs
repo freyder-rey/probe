@@ -61,7 +61,5 @@ fn extract_from_str(s: &str, out: &mut HashSet<String>) {
 }
 
 fn find_pattern(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack
-        .windows(needle.len())
-        .position(|w| w == needle)
+    haystack.windows(needle.len()).position(|w| w == needle)
 }
