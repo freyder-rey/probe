@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Collection, KeyValue, Request, Validation } from '../types'
 import { JsonEditor } from './JsonEditor'
 
@@ -58,8 +58,8 @@ function validationValue(v: Validation, field: string): string | number {
 }
 
 function validationName(v: Validation): string {
-  const json = JSON.stringify(v)
-  return `${v.kind}: ${json}`
+  const { name: _, ...rest } = v
+  return `${v.kind}: ${JSON.stringify(rest)}`
 }
 
 function makeValidation(kind: Validation['kind']): Validation {
@@ -83,9 +83,18 @@ function makeValidation(kind: Validation['kind']): Validation {
 
 export function RequestEditor({ request, onChange, onSend, onSave, onCreateNew, collections, sending }: Props) {
   const [tab, setTab] = useState<'query' | 'headers' | 'body' | 'validations'>('query')
-  const [bodyType, setBodyType] = useState<Request['body']['type']>(request.body.type)
   const [saveModal, setSaveModal] = useState(false)
   const [newCollectionName, setNewCollectionName] = useState('')
+
+  const jsonError = useMemo(() => {
+    if (request.body.type !== 'raw' || !request.body.content.trim()) return null
+    try {
+      JSON.parse(request.body.content)
+      return null
+    } catch (e) {
+      return (e as Error).message.replace(/^JSON\.parse: /, '')
+    }
+  }, [request.body])
 
   useEffect(() => {
     if (!saveModal) return
@@ -95,6 +104,17 @@ export function RequestEditor({ request, onChange, onSend, onSave, onCreateNew, 
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [saveModal])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        setSaveModal(true)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   function set<K extends keyof Request>(key: K, value: Request[K]) {
     onChange({ ...request, [key]: value })
@@ -117,14 +137,13 @@ export function RequestEditor({ request, onChange, onSend, onSave, onCreateNew, 
   }
 
   function switchBodyType(type: Request['body']['type']) {
-    setBodyType(type)
-    if (type === 'raw') set('body', { type: 'raw', content: '' })
-    else if (type === 'urlencoded') set('body', { type: 'urlencoded', fields: [] })
-    else set('body', { type: 'none' })
+    if (type === 'raw') set('body', { type: 'raw' as const, content: '' })
+    else if (type === 'urlencoded') set('body', { type: 'urlencoded' as const, fields: [] })
+    else set('body', { type: 'none' as const })
   }
 
   function updateRawBody(content: string) {
-    set('body', { type: 'raw', content })
+    set('body', { type: 'raw' as const, content })
   }
 
   function updateUrlEncoded(idx: number, patch: Partial<KeyValue>) {
@@ -203,7 +222,7 @@ export function RequestEditor({ request, onChange, onSend, onSave, onCreateNew, 
           onChange={(e) => set('url', e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') onSend() }}
         />
-        <button id="send" className="primary" disabled={sending} onClick={onSend}>
+        <button id="send" className="primary" disabled={sending || jsonError !== null} onClick={onSend}>
           {sending ? 'Enviando…' : 'Enviar'}
         </button>
         <button id="save" onClick={() => setSaveModal(true)}>Guardar</button>
@@ -284,7 +303,7 @@ export function RequestEditor({ request, onChange, onSend, onSave, onCreateNew, 
             <select
               id="body-type"
               aria-label="Tipo de body"
-              value={bodyType}
+              value={request.body.type}
               onChange={(e) => switchBodyType(e.target.value as Request['body']['type'])}
             >
               <option value="none">Sin cuerpo</option>
@@ -293,12 +312,15 @@ export function RequestEditor({ request, onChange, onSend, onSave, onCreateNew, 
             </select>
           </div>
           {request.body.type === 'raw' && (
-            <JsonEditor
-              value={request.body.content}
-              onChange={updateRawBody}
-              placeholder='{"clave": "valor"}'
-              ariaLabel="Body raw"
-            />
+            <>
+              <JsonEditor
+                value={request.body.content}
+                onChange={updateRawBody}
+                placeholder='{"clave": "valor"}'
+                ariaLabel="Body raw"
+              />
+              {jsonError && <div className="json-error" role="alert">JSON inválido: {jsonError}</div>}
+            </>
           )}
           {request.body.type === 'urlencoded' && (
             <div className="kv-list" id="urlencoded-list">

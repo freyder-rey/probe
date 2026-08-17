@@ -235,6 +235,7 @@ export default function App() {
       iterations: test.iterations,
       delayMs: test.delayMs,
       csv: test.csv && test.csv.type === 'path' ? test.csv.path : '',
+      csvColumns: [],
     })
     setRunKey(null)
     setRunStatus(null)
@@ -256,7 +257,11 @@ export default function App() {
         onToast={notify}
         onNewTest={() => newTest()}
         onEditTest={editTest}
-        onRunTest={(collectionName, testName) => { setMode('test'); void startTest(collectionName, testName) }}
+        onRunTest={(collectionName, testName) => {
+          const col = collections.find((c) => c.name === collectionName)
+          const test = col?.tests.find((t) => t.name === testName)
+          if (test) editTest(collectionName, test)
+        }}
         onShowReport={showReport}
       />
       <main ref={mainRef}>

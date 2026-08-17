@@ -94,6 +94,12 @@ export interface RunEvent {
   request: string
   /** Iteración 1-based en la que se ejecutó la solicitud. */
   iteration: number
+  /** Índice 0-based de la fila CSV usada (null si no hay CSV). */
+  csvRow: number | null
+  /** Método HTTP (GET, POST, PUT, etc.). */
+  method: string
+  /** URL interpolada a la que se envió la solicitud. */
+  url: string
   /** Status HTTP real (null si hubo error de red/parseo). */
   status: number | null
   ok: boolean
@@ -138,10 +144,11 @@ export interface TestDraft {
   iterations: number
   delayMs: number
   csv: string
+  csvColumns: string[]
 }
 
 export function newTestDraft(): TestDraft {
-  return { name: '', collection: '', all: true, requestNames: [], iterations: 1, delayMs: 0, csv: '' }
+  return { name: '', collection: '', all: true, requestNames: [], iterations: 1, delayMs: 0, csv: '', csvColumns: [] }
 }
 
 export function draftToLoadTest(d: TestDraft): LoadTest {

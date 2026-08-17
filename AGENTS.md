@@ -221,3 +221,93 @@ modal de guardado.
    también queda en el reporte final. 24 tests Rust (2 markdown, 1 Validation::name,
    1 RunEvent con status), 26 tests web (3 nuevos: tabla en vivo, log y export).
 8. V2 posible de load tests: pausa/reanudar, más métricas en el reporte.
+
+### Sesión reciente (PRs #13-#17 + release CI)
+
+- **PR #13 `fix/pestanas-tabs` mergeado** → `develop`. Las pestañas
+  Headers/Body/Validaciones y de respuesta no mostraban contenido: el CSS venía
+  del frontend vanilla (`.tab { display: none }`, el JSX React solo marcaba
+  `tab active` en la primera). Fix en `web/src/index.css` (`.tab` siempre
+  visible, `#response .tab`) + `web/src/components/RequestEditor.test.tsx`
+  (2 tests). 28 tests web.
+- **PR #14 `ci/release-workflow` mergeado** → `develop`. Nuevo
+  `.github/workflows/release.yml`: en cada push a `main` (merge develop → main)
+  auto-incrementa el patch semver (`v0.1.0` → `v0.1.1`…), crea el tag, compila
+  `probe` + `probe-server` en release para Linux (x86_64), macOS (x86_64 +
+  aarch64) y Windows (x86_64) y publica un GitHub Release con changelog de PRs
+  mergeados. reqwest usa TLS nativo de cada SO (Linux instala `pkg-config
+  libssl-dev`). Validado con actionlint.
+- **Bug heredoc en GITHUB_OUTPUT**: el changelog se pasaba con
+  `changelog<<'EOF'` a `GITHUB_OUTPUT`, pero GitHub Actions NO parsea el heredoc
+  como bash (el delimitador se toma literal, `'EOF'` con comillas) →
+  "Matching delimiter not found ''. Fix en **PR #16 `fix/ci-release-workflow`**
+  (el original #14 ya estaba mergeado; rama limpia desde develop): el changelog
+  se escribe a `changelog.txt`, se sube como **artefacto** (`name: changelog`) y
+  el job `release` lo usa vía `body_path` (en vez de `body:` multilínea).
+- **PR #17 merge develop → main** (`ad78bcb`): `main` ya tiene el workflow
+  fixeado (`body_path`). **PR #15** (el primer merge develop → main) falló por
+  el bug del heredoc.
+- **Estado del release CI** (a 2026-08-16): el action corrió sobre `main`
+  (`31923012806`), el job `version` pasó, pero **`build` de Windows falla**:
+  el paso "Renombrar binarios con sufijo de plataforma" copia a `/tmp/out`
+  (Git Bash de Windows lo resuelve bien, los archivos existen) pero
+  `actions/upload-artifact@v4` no ve `/tmp/out` en Windows
+  (`##[error]No files were found with the provided path: /tmp/out`). Fix
+  pendiente: usar una ruta relativa al workspace (ej. `dist/`) en vez de
+  `/tmp/out`. Los otros 3 builds (linux + 2 mac) pasan. **No hay release
+  publicado** y existen tags `v0.1.0`-`v0.1.3` sin release asociado (los crea
+  el job `version` en cada run; `v0.1.1`/`v0.1.2` apuntan al initial commit
+  `8b6573c` — basura de los runs fallidos).
+- Ramas: solo `develop` y `main` en el remoto (las de PRs ya mergeados se
+  borraron con `deleteBranchOnMerge: true`; la huérfana `ci/release-workflow`
+  post-merge se eliminó a mano).
+- **Git flow a respetar**: ramas `feature/`, `docs/`, `fix/`, `hotfix/` — NO
+  prefijos tipo `ci/`.
+- Verificado local: build, clippy/fmt limpios, 24 tests Rust, 28 tests web,
+  lint. `make test` corre Rust + vitest + lint.
+
+### Sesión actual (PRs #18-#22 + CI de PRs)
+
+- **PR #18 `fix/release-ci-upload-artifact` mergeado** → `develop`. Fix del
+  release CI que fallaba en Windows: los binarios se copian a `dist/` (ruta
+  relativa al workspace) en vez de `/tmp/out`. Bump a `upload-artifact@v7` /
+  `download-artifact@v8` (node24). `pattern: bin-*` para no mezclar changelog
+  con binarios, y `overwrite: true` para re-runs. Verificado: YAML válido.
+- **PR #19 merge develop → main**: disparó el release CI con el fix.
+  **v0.1.4** publicado exitosamente (el primer release real del proyecto).
+- **PR #20 `feature/ci-cobertura-prs` mergeado** → `develop`. Nuevo
+  `.github/workflows/ci.yml`: en cada PR hacia develop corren 4 jobs —
+  **git flow** (prefijo `feature/|fix/|docs/|hotfix/`), **build** (`cargo build`
+  + `clippy -D warnings` + `cargo fmt --check`), **tests** (`cargo test --workspace`)
+  y **coverage** (`cargo llvm-cov -p probe-core --fail-under-lines 90`).
+  25 tests nuevos (24→49 Rust): engine (query/headers/bodies/errores), edge
+  cases de validaciones (header ausente, body sin JSON, paths malformados),
+  markdown (urlencoded, kvs disabled, urls edge), storage (save_path,
+  sanitización, JSON inválido, csv_dir, HOME fallback), memory (load_file,
+  overwrite), defaults de deserialización. Probe-core coverage 83.16% → 92.32%.
+  Cobertura gate: cierra si baja de 90%.
+- **PR #21 mergeado** → `develop`. Bump `actions/checkout@v4` → `@v5` en
+  `ci.yml` y `release.yml` para eliminar el warning de Node 20 deprecation.
+- **PR #22 `docs/update-agents-md` mergeado** → `develop`. AGENTS.md
+  actualizado con notas de las sesiones anteriores.
+- **Protocolo de sincronización** (nueva regla para evitar desyncs de develop):
+  1. Al arrancar trabajo: `git fetch origin && git reset --hard origin/develop`.
+  2. Nunca `git push` a una rama con PR mergeado — crear rama nueva desde
+     develop actual.
+  3. Después de merge: `git fetch && git checkout develop && git reset --hard origin/develop`.
+  4. Usar `--admin` en merges de PRs (develop exige 1 review pero no hay
+     otros reviewers).
+- **Ramas en el remoto**: `develop` (080f229), `main`. Todas las ramas de PRs
+  anteriores se borraron con `deleteBranchOnMerge: true`.
+- **Tags**: `v0.1.0`–`v0.1.3` basura (runs fallidos); `v0.1.4` es el primer
+  release real.
+- Verificado local: 49 tests Rust, 28 tests web, clippy/fmt limpios,
+  coverage 92.32% (gate pasa). `make test` corre Rust + vitest + lint.
+
+### Pendientes conocidos
+
+1. **Electron** para el frontend (roadmap, no prioridad inmediata).
+2. **V2 de load tests**: pausa/reanudar, más métricas en el reporte.
+3. **Tags basura** (`v0.1.0`–`v0.1.3`): podrían limpiarse con `git tag -d`
+   + `git push origin --delete` (afecta releases fallidos, no el código).
+4. **`AGENTS.md`**: las notas de sesión ya están en develop (PR #22).

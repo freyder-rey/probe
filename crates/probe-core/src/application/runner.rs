@@ -16,7 +16,10 @@ use crate::domain::{
 };
 
 use super::{
-    interpolation::interpolate, ports::CsvRowLoader, ports::HttpExecutor, ports::LoadTestRunner,
+    interpolation::{extract_variables, interpolate},
+    ports::CsvRowLoader,
+    ports::HttpExecutor,
+    ports::LoadTestRunner,
 };
 
 struct Sample {
@@ -63,7 +66,19 @@ impl Runner {
             None => vec![],
         };
 
-        let total = test.iterations * flow.len() as u64;
+        if !rows.is_empty() {
+            let csv_headers: std::collections::HashSet<String> = rows[0].keys().cloned().collect();
+            let used_vars = extract_variables(&flow);
+            let missing: Vec<&String> = used_vars.difference(&csv_headers).collect();
+            if !missing.is_empty() {
+                let names: Vec<String> = missing.iter().map(|s| format!("{{{{{s}}}}}")).collect();
+                bail!(
+                    "las solicitudes usan variables que no existen en el CSV: {}",
+                    names.join(", ")
+                );
+            }
+        }
+
         let mut completed: u64 = 0;
         let mut successes: u64 = 0;
         let mut samples: Vec<u128> = Vec::new();
@@ -76,96 +91,176 @@ impl Runner {
             list
         };
 
+        let has_csv = !rows.is_empty();
+        let csv_row_count = rows.len() as u64;
+        let total = if has_csv {
+            csv_row_count * test.iterations * flow.len() as u64
+        } else {
+            test.iterations * flow.len() as u64
+        };
         let start = std::time::Instant::now();
 
-        'outer: for i in 0..test.iterations {
+        eprintln!(
+            "▶ Test \"{}\": {} iteración(es), {} solicitud(es){}, CSV: {} fila(s) → {} total",
+            test.name,
+            test.iterations,
+            flow.len(),
+            if test.delay_ms > 0 {
+                format!(", delay {}ms", test.delay_ms)
+            } else {
+                String::new()
+            },
+            if has_csv {
+                csv_row_count.to_string()
+            } else {
+                "ninguno".to_string()
+            },
+            total,
+        );
+
+        'outer: for iter in 0..test.iterations {
             if is_cancelled(cancel) {
                 break;
             }
-            let vars = if rows.is_empty() {
-                HashMap::new()
-            } else {
-                rows[i as usize % rows.len()].clone()
-            };
-
-            for (pos, req) in flow.iter().enumerate() {
+            let row_count = if has_csv { csv_row_count } else { 1 };
+            for row in 0..row_count {
                 if is_cancelled(cancel) {
                     break 'outer;
                 }
-
-                on_progress(RunProgress {
-                    done: completed,
-                    total,
-                    current_request: Some(req.name.clone()),
-                    per_request: snapshot(&per_request),
-                    last_event: None,
-                });
-
-                let sample = match self.engine.execute(&interpolate_request(req, &vars)).await {
-                    Ok(resp) => {
-                        let passed = resp.validation_results.iter().all(|v| v.passed);
-                        Sample {
-                            duration_ms: resp.duration_ms,
-                            passed,
-                            error: None,
-                            status: Some(resp.status),
-                        }
-                    }
-                    Err(err) => Sample {
-                        duration_ms: 0,
-                        passed: false,
-                        error: Some(err.to_string()),
-                        status: None,
-                    },
+                let csv_row_idx = if has_csv { Some(row) } else { None };
+                let vars = if has_csv {
+                    rows[row as usize].clone()
+                } else {
+                    HashMap::new()
                 };
 
-                completed += 1;
-                samples.push(sample.duration_ms);
-
-                if sample.passed {
-                    successes += 1;
-                } else if errors.len() < 20 {
-                    if let Some(ref e) = sample.error {
-                        errors.push(format!("{}: {e}", req.name));
-                    }
-                }
-
-                let summary =
-                    per_request
-                        .entry(req.name.clone())
-                        .or_insert_with(|| RequestSummary {
-                            name: req.name.clone(),
-                            total: 0,
-                            success: 0,
-                            failed: 0,
-                        });
-                summary.total += 1;
-                if sample.passed {
-                    summary.success += 1;
+                if has_csv {
+                    eprintln!(
+                        "  Iter {}/{}, fila {}/{}: {}",
+                        iter + 1,
+                        test.iterations,
+                        row + 1,
+                        csv_row_count,
+                        vars.iter()
+                            .map(|(k, v)| format!("{k}={v}"))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    );
                 } else {
-                    summary.failed += 1;
+                    eprintln!("  Iteración {}/{}", iter + 1, test.iterations);
                 }
 
-                on_progress(RunProgress {
-                    done: completed,
-                    total,
-                    current_request: None,
-                    per_request: snapshot(&per_request),
-                    last_event: Some(RunEvent {
-                        request: req.name.clone(),
-                        iteration: i + 1,
-                        status: sample.status,
-                        ok: sample.passed,
-                        duration_ms: sample.duration_ms,
-                        error: sample.error.clone(),
-                    }),
-                });
+                for (pos, req) in flow.iter().enumerate() {
+                    if is_cancelled(cancel) {
+                        break 'outer;
+                    }
 
-                if test.delay_ms > 0 && pos + 1 < flow.len() {
-                    sleep(Duration::from_millis(test.delay_ms)).await;
+                    on_progress(RunProgress {
+                        done: completed,
+                        total,
+                        current_request: Some(req.name.clone()),
+                        per_request: snapshot(&per_request),
+                        last_event: None,
+                    });
+
+                    let interpolated = interpolate_request(req, &vars);
+                    let method = interpolated.method.clone();
+                    let url = interpolated.url.clone();
+
+                    let sample = match self.engine.execute(&interpolated).await {
+                        Ok(resp) => {
+                            let passed = resp.validation_results.iter().all(|v| v.passed);
+                            Sample {
+                                duration_ms: resp.duration_ms,
+                                passed,
+                                error: None,
+                                status: Some(resp.status),
+                            }
+                        }
+                        Err(err) => Sample {
+                            duration_ms: 0,
+                            passed: false,
+                            error: Some(err.to_string()),
+                            status: None,
+                        },
+                    };
+
+                    completed += 1;
+                    samples.push(sample.duration_ms);
+
+                    if sample.passed {
+                        successes += 1;
+                    } else if errors.len() < 20 {
+                        if let Some(ref e) = sample.error {
+                            errors.push(format!("{}: {e}", req.name));
+                        }
+                    }
+
+                    let summary =
+                        per_request
+                            .entry(req.name.clone())
+                            .or_insert_with(|| RequestSummary {
+                                name: req.name.clone(),
+                                total: 0,
+                                success: 0,
+                                failed: 0,
+                            });
+                    summary.total += 1;
+                    if sample.passed {
+                        summary.success += 1;
+                    } else {
+                        summary.failed += 1;
+                    }
+
+                    let status_str = sample
+                        .status
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| "ERR".to_string());
+                    eprintln!(
+                        "    [{}/{}] {} {} {} → {} ({}ms){}",
+                        completed,
+                        total,
+                        method,
+                        req.name,
+                        url,
+                        status_str,
+                        sample.duration_ms,
+                        if sample.passed { "" } else { " ✗" }
+                    );
+
+                    on_progress(RunProgress {
+                        done: completed,
+                        total,
+                        current_request: None,
+                        per_request: snapshot(&per_request),
+                        last_event: Some(RunEvent {
+                            request: req.name.clone(),
+                            iteration: iter + 1,
+                            csv_row: csv_row_idx,
+                            method,
+                            url,
+                            status: sample.status,
+                            ok: sample.passed,
+                            duration_ms: sample.duration_ms,
+                            error: sample.error.clone(),
+                        }),
+                    });
+
+                    if test.delay_ms > 0 && pos + 1 < flow.len() {
+                        sleep(Duration::from_millis(test.delay_ms)).await;
+                    }
                 }
             }
         }
+
+        eprintln!(
+            "✓ Test \"{}\" completado: {}/{} exitosas, {} fallidas, {}ms total",
+            test.name,
+            successes,
+            completed,
+            completed - successes,
+            start.elapsed().as_millis()
+        );
 
         let duration_ms = start.elapsed().as_millis();
         let failed = completed - successes;
@@ -380,7 +475,7 @@ mod tests {
         let test = LoadTest {
             name: "csv test".to_string(),
             request_names: vec!["usuarios".to_string()],
-            iterations: 4,
+            iterations: 2,
             delay_ms: 0,
             csv: Some(CsvSource::Path {
                 path: csv.to_string_lossy().into_owned(),
@@ -390,7 +485,7 @@ mod tests {
         let runner = runner();
         let report = runner.run(&test, &requests, None, |_| {}).await.unwrap();
 
-        // Filas: (1,ana),(2,leo) -> cicladas 4 veces: 1,2,1,2.
+        // CSV: (1,ana),(2,leo) → 2 iteraciones × 2 filas = 4 requests.
         // El body del echo es el id: "1" contiene "1" (pasa), "2" no (falla).
         assert_eq!(report.total_requests, 4);
         assert_eq!(report.success, 2);
@@ -484,10 +579,41 @@ mod tests {
         assert_eq!(events[0].request, "ok");
         assert_eq!(events[0].status, Some(200));
         assert!(events[0].ok);
+        assert_eq!(events[0].csv_row, None);
         assert_eq!(events[1].request, "bad");
         assert_eq!(events[1].status, Some(500));
         assert!(!events[1].ok);
         assert_eq!(events[2].iteration, 2);
+        assert_eq!(events[2].csv_row, None);
         assert_eq!(events[3].request, "bad");
+    }
+
+    #[tokio::test]
+    async fn runner_errors_when_csv_missing_variables() {
+        let csv = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src/infrastructure/testdata/usuarios.csv");
+        let requests = vec![request(
+            "usuarios",
+            "https://example.com/{{id}}/{{falta}}".to_string(),
+            vec![],
+        )];
+        let test = LoadTest {
+            name: "csv vars".to_string(),
+            request_names: vec!["usuarios".to_string()],
+            iterations: 1,
+            delay_ms: 0,
+            csv: Some(CsvSource::Path {
+                path: csv.to_string_lossy().into_owned(),
+            }),
+        };
+
+        let runner = runner();
+        let result = runner.run(&test, &requests, None, |_| {}).await;
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("falta"),
+            "debería mencionar la variable faltante: {msg}"
+        );
     }
 }

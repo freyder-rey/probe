@@ -75,9 +75,19 @@ export function ResponsePanel({ response, error }: Props) {
 
       {tab === 'headers' && (
         <div id="rtab-headers" className="tab">
-          {response.headers.map(([k, v], i) => (
-            <div key={i}>{k}: {v}</div>
-          ))}
+          <table className="headers-table">
+            <thead>
+              <tr><th>Header</th><th>Valor</th></tr>
+            </thead>
+            <tbody>
+              {response.headers.map(([k, v], i) => (
+                <tr key={i}>
+                  <td className="header-key">{k}</td>
+                  <td className="header-val">{v}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

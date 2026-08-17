@@ -99,3 +99,151 @@ fn csv_source_roundtrip() {
     let back: CsvSource = serde_json::from_str(&json).unwrap();
     assert!(matches!(back, CsvSource::Path { .. }));
 }
+
+#[test]
+fn request_defaults_when_fields_missing() {
+    let json = r#"{"name":"Ping","method":"GET","url":"https://example.com"}"#;
+    let request: Request = serde_json::from_str(json).unwrap();
+    assert!(request.id.is_none());
+    assert!(request.query.is_empty());
+    assert!(request.headers.is_empty());
+    assert!(matches!(request.body, Body::None));
+    assert_eq!(request.timeout_secs, 30);
+    assert!(request.follow_redirects);
+    assert!(request.validations.is_empty());
+}
+
+#[test]
+fn key_value_new_enables_by_default() {
+    let kv = KeyValue::new("a", "b");
+    assert_eq!(kv.key, "a");
+    assert_eq!(kv.value, "b");
+    assert!(kv.enabled);
+}
+
+#[test]
+fn key_value_enabled_defaults_true_on_deserialize() {
+    let kv: KeyValue = serde_json::from_str(r#"{"key":"a","value":"b"}"#).unwrap();
+    assert!(kv.enabled);
+}
+
+#[test]
+fn body_none_serializes_as_type() {
+    let json = serde_json::to_string(&Body::None).unwrap();
+    assert_eq!(json, r#"{"type":"none"}"#);
+}
+
+#[test]
+fn load_test_defaults_on_missing_fields() {
+    let test: LoadTest = serde_json::from_str(r#"{"name":"Smoke"}"#).unwrap();
+    assert_eq!(test.iterations, 1);
+    assert_eq!(test.delay_ms, 0);
+    assert!(test.request_names.is_empty());
+    assert!(test.csv.is_none());
+}
+
+#[test]
+fn load_test_report_serializes_camel_case() {
+    let report = LoadTestReport {
+        test_name: "x".to_string(),
+        duration_ms: 5,
+        total_requests: 2,
+        success: 1,
+        failed: 1,
+        avg_ms: 2,
+        p95_ms: 3,
+        per_request: vec![],
+        errors: vec![],
+    };
+    let json = serde_json::to_value(&report).unwrap();
+    assert!(json.get("testName").is_some());
+    assert!(json.get("totalRequests").is_some());
+    assert!(json.get("avgMs").is_some());
+    assert!(json.get("p95Ms").is_some());
+    assert!(json.get("perRequest").is_some());
+}
+
+#[test]
+fn run_event_roundtrip() {
+    let event = RunEvent {
+        request: "ok".to_string(),
+        iteration: 2,
+        csv_row: None,
+        method: "GET".to_string(),
+        url: "http://localhost/ok".to_string(),
+        status: Some(200),
+        ok: true,
+        duration_ms: 3,
+        error: None,
+    };
+    let json = serde_json::to_value(&event).unwrap();
+    assert!(json.get("iteration").is_some());
+    assert!(json.get("status").is_some());
+    assert!(json.get("durationMs").is_some());
+    assert!(json.get("csvRow").is_some());
+    let back: RunEvent = serde_json::from_value(json).unwrap();
+    assert_eq!(back.status, Some(200));
+    assert_eq!(back.iteration, 2);
+    assert_eq!(back.csv_row, None);
+    assert_eq!(back.method, "GET");
+    assert_eq!(back.url, "http://localhost/ok");
+}
+
+#[test]
+fn run_progress_serializes_camel_case() {
+    let progress = RunProgress {
+        done: 1,
+        total: 3,
+        current_request: Some("ok".to_string()),
+        per_request: vec![],
+        last_event: None,
+    };
+    let json = serde_json::to_value(&progress).unwrap();
+    assert!(json.get("currentRequest").is_some());
+    assert!(json.get("perRequest").is_some());
+    assert!(json.get("lastEvent").is_some());
+}
+
+#[test]
+fn validation_name_for_every_kind() {
+    let validations = [
+        Validation::StatusEquals {
+            name: "s".into(),
+            expected: 200,
+        },
+        Validation::HeaderEquals {
+            name: "he".into(),
+            header: "X".into(),
+            expected: "y".into(),
+        },
+        Validation::HeaderContains {
+            name: "hc".into(),
+            header: "X".into(),
+            expected: "y".into(),
+        },
+        Validation::BodyContains {
+            name: "bc".into(),
+            expected: "x".into(),
+        },
+        Validation::BodyEquals {
+            name: "be".into(),
+            expected: "x".into(),
+        },
+        Validation::JsonEquals {
+            name: "je".into(),
+            path: "$.a".into(),
+            expected: serde_json::json!(1),
+        },
+        Validation::JsonExists {
+            name: "jx".into(),
+            path: "$.a".into(),
+        },
+        Validation::DurationLt {
+            name: "dl".into(),
+            max_ms: 5,
+        },
+    ];
+    for v in &validations {
+        assert!(!v.name().is_empty());
+    }
+}

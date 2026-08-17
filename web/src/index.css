@@ -348,21 +348,38 @@ body {
 
 .log-row {
   display: grid;
-  grid-template-columns: 48px 1fr 110px auto;
-  gap: 10px;
+  grid-template-columns: 32px auto 40px auto minmax(40px, auto) 1fr 48px;
+  gap: 6px;
   align-items: center;
   padding: 5px 10px;
   border-bottom: 1px solid var(--border);
 }
 
 .log-row:last-child { border-bottom: none; }
-
 .log-row.ok .log-status { color: var(--green); }
+
 .log-row.fail .log-status { color: var(--red); }
 
-.log-iter { color: var(--text-dim); font-variant-numeric: tabular-nums; }
-.log-req { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.log-detail { color: var(--text-dim); text-align: right; }
+.log-num { color: var(--text-dim); font-variant-numeric: tabular-nums; font-size: 11px; }
+.log-csv { color: var(--accent); font-size: 0.85em; }
+.log-method { font-weight: 600; font-size: 11px; text-align: right; }
+.log-req { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log-status { font-weight: 600; font-size: 11px; text-align: center; }
+.log-url { color: var(--text-dim); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.log-detail { color: var(--text-dim); text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; }
+
+.csv-info {
+  font-size: 12px;
+  color: var(--accent);
+  padding: 4px 0 0;
+}
+.field-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  font-style: italic;
+}
 
 .method.get { color: var(--green); }
 .method.post { color: var(--orange); }
@@ -418,6 +435,26 @@ main {
 
 .test-actions { display: flex; gap: 8px; margin-top: 16px; }
 .test-actions button { flex: 1; }
+
+.csv-coverage {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 0.82em;
+}
+.csv-coverage-ok { color: var(--green); }
+.csv-coverage-warn { color: var(--red); }
+.csv-coverage-info { color: var(--muted); }
+
+.json-error {
+  color: var(--red);
+  font-size: 0.82em;
+  margin-top: 4px;
+  padding: 4px 8px;
+  background: rgba(255, 0, 0, 0.08);
+  border-radius: 4px;
+}
 
 #request-response, #test-panel {
   flex: 1;

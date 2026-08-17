@@ -17,7 +17,7 @@ jobs:
       version: ${{ steps.next.outputs.version }}
       tag: ${{ steps.next.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -105,7 +105,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             suffix: windows-x86_64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Instalar target de Rust
         run: rustup target add ${{ matrix.target }}
       - name: Dependencias de build (Linux)
